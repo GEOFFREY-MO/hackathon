@@ -4,7 +4,8 @@ from flask import Blueprint, render_template, redirect, request, url_for, flash,
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 import re
-from database.models import db, User, Shop
+from backend.database.models import db, User, Shop
+from datetime import datetime
 
 auth_bp = Blueprint('auth', __name__)
 

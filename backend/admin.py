@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, flash, Response, redirect, url_for, request, jsonify, send_file, current_app
 from flask_login import login_required, current_user
-from database.models import Shop, Product, Inventory, User, db, Sale, Service, ServiceSale, Resource, ShopResource, Expense, ResourceHistory, ResourceAlert, ResourceCategory
+from backend.database.models import Shop, Product, Inventory, User, db, Sale, Service, ServiceSale, Resource, ShopResource, Expense, ResourceHistory, ResourceAlert, ResourceCategory
 from io import StringIO
 import csv
 from datetime import datetime, timedelta
