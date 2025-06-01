@@ -788,16 +788,18 @@ def handle_stock_query(message):
             if low_stock_items:
                 response = "Here are items running low on stock:\n"
                 for item in low_stock_items:
-                    response += f"- {
-                        item.name}: {
-                        item.stock_quantity} units remaining\n"
+                    response += f"- {item.name}: {item.stock_quantity} units remaining\n"
                 return response
             return "All items are well-stocked at the moment."
 
         # Get specific product stock
         for item in Product.query.all():
             if item.name.lower() in message:
-                return f"{item.name} has {item.stock_quantity} units in stock."
+                inventory = Inventory.query.filter_by(
+                    shop_id=current_user.shop_id,
+                    product_id=item.id
+                ).first()
+                return f"{item.name}:\n- Price: KES {item.marked_price:.2f}\n- Stock: {inventory.quantity} units\n- Category: {item.category}"
 
         return "I can help you check stock levels. Would you like to know about low stock items or check a specific product?"
 
@@ -818,8 +820,7 @@ def handle_sales_query(message):
             ).all()
             total = sum(sale.price * sale.quantity for sale in sales)
             count = len(sales)
-            return f"Today's sales: {count} transactions totaling KES {
-                total:.2f}"
+            return f"Today's sales: {count} transactions totaling KES {total:.2f}"
 
         elif 'yesterday' in message:
             yesterday = today - timedelta(days=1)
@@ -829,8 +830,7 @@ def handle_sales_query(message):
             ).all()
             total = sum(sale.price * sale.quantity for sale in sales)
             count = len(sales)
-            return f"Yesterday's sales: {count} transactions totaling KES {
-                total:.2f}"
+            return f"Yesterday's sales: {count} transactions totaling KES {total:.2f}"
 
         return "I can provide sales information for today or yesterday. Which would you like to know about?"
 
@@ -850,11 +850,7 @@ def handle_product_query(message):
                     shop_id=current_user.shop_id,
                     product_id=item.id
                 ).first()
-                return f"{
-                    item.name}:\n- Price: KES {
-                    item.marked_price:.2f}\n- Stock: {
-                    inventory.quantity} units\n- Category: {
-                    item.category}"
+                return f"{item.name}:\n- Price: KES {item.marked_price:.2f}\n- Stock: {inventory.quantity} units\n- Category: {item.category}"
 
         # Get top selling products
         if 'top' in message or 'best' in message:
@@ -894,9 +890,7 @@ def handle_time_query(message):
         elif 'week' in message:
             week_start = today - timedelta(days=today.weekday())
             week_end = week_start + timedelta(days=6)
-            return f"This week is from {
-                week_start.strftime('%B %d')} to {
-                week_end.strftime('%B %d, %Y')}"
+            return f"This week is from {week_start.strftime('%B %d')} to {week_end.strftime('%B %d, %Y')}"
 
         elif 'month' in message:
             return "Current month is " + today.strftime("%B %Y")
@@ -919,8 +913,7 @@ def get_stock_status_insights():
             shop_id=current_user.shop_id).count()
 
         if low_stock_items:
-            return f"{
-                len(low_stock_items)} out of {total_items} items need restocking"
+            return f"{len(low_stock_items)} out of {total_items} items need restocking"
         return f"All {total_items} items are well-stocked"
 
     except Exception as e:
