@@ -1,20 +1,24 @@
 services:
   - type: web
-    name: smartretail-ai
+    name: smartretailai
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn wsgi:app
+    buildCommand: chmod +x deploy.sh && ./deploy.sh
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 4 --timeout 120
     envVars:
+      - key: FLASK_APP
+        value: app.py
       - key: FLASK_ENV
         value: production
-      - key: SECRET_KEY
-        generateValue: true
+      - key: PYTHON_VERSION
+        value: 3.9.0
       - key: DATABASE_URL
         fromDatabase:
-          name: smartretail-db
+          name: smartretailai-db
           property: connectionString
 
 databases:
-  - name: smartretail-db
-    databaseName: smartretail
-    user: smartretail_user 
+  - name: smartretailai-db
+    databaseName: smartretailai
+    user: smartretailai
+    plan: free
+    postgresMajorVersion: 15 
