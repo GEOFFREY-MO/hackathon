@@ -2205,8 +2205,7 @@ def download_accounts():
             output,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             as_attachment=True,
-            download_name=f'financial_report_{date_range}_{
-                datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx')
+            download_name=f'financial_report_{date_range}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx')
 
     except Exception as e:
         logger.error(f"Error downloading accounts: {str(e)}")
