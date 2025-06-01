@@ -1955,10 +1955,7 @@ def get_accounts_summary():
                         Sale.sale_date <= end_date
                     ).group_by(Sale.payment_method).all()
 
-                    logger.info(
-                        f"Found {
-                            len(sales_by_payment)} product sales records for shop {
-                            shop.name}")
+                    logger.info(f"Found {len(sales_by_payment)} product sales records for shop {shop.name}")
 
                     # Get service sales grouped by payment method
                     service_sales_by_payment = db.session.query(
@@ -1970,10 +1967,7 @@ def get_accounts_summary():
                         ServiceSale.sale_date <= end_date
                     ).group_by(ServiceSale.payment_method).all()
 
-                    logger.info(
-                        f"Found {
-                            len(service_sales_by_payment)} service sales records for shop {
-                            shop.name}")
+                    logger.info(f"Found {len(service_sales_by_payment)} service sales records for shop {shop.name}")
 
                     # Get expenses
                     shop_expenses = Expense.query.filter(
@@ -1982,10 +1976,7 @@ def get_accounts_summary():
                         Expense.date <= end_date
                     ).all()
 
-                    logger.info(
-                        f"Found {
-                            len(shop_expenses)} expenses for shop {
-                            shop.name}")
+                    logger.info(f"Found {len(shop_expenses)} expenses for shop {shop.name}")
 
                     # Initialize shop totals
                     shop_totals = {
@@ -2022,15 +2013,11 @@ def get_accounts_summary():
                         'total': shop_total
                     })
 
-                    logger.info(
-                        f"Processed shop {
-                            shop.name} totals: {shop_totals}")
+                    logger.info(f"Processed shop {shop.name} totals: {shop_totals}")
 
                 except Exception as e:
                     logger.error(
-                        f"Error processing shop {
-                            shop.name}: {
-                            str(e)}")
+                        f"Error processing shop {shop.name}: {str(e)}")
                     continue
 
         # Calculate overall total
