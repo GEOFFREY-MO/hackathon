@@ -19,10 +19,11 @@ python -m pip install --upgrade pip==25.1.1
 echo "Installing Python dependencies..."
 pip install -r requirements.txt
 
-# Set up database
-echo "Setting up database..."
+# Set up environment
+echo "Setting up environment..."
 export FLASK_APP=app.py
 export FLASK_ENV=production
+export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 # Run database migrations
 echo "Running database migrations..."
@@ -30,4 +31,4 @@ flask db upgrade
 
 # Start the application
 echo "Starting application..."
-gunicorn app:app --bind 0.0.0.0:$PORT --workers 4 --timeout 120 
+gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 4 --timeout 120 
