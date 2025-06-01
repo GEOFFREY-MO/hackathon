@@ -1,6 +1,6 @@
 from flask.cli import with_appcontext
 import click
-from database.models import db, Shop, User, Resource
+from backend.database.models import db, Shop, User, Resource
 from werkzeug.security import generate_password_hash
 from datetime import datetime
 
