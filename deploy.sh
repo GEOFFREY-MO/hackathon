@@ -5,8 +5,16 @@ set -e
 
 echo "Starting deployment process..."
 
-# Install dependencies
-echo "Installing dependencies..."
+# Install system dependencies
+echo "Installing system dependencies..."
+apt-get update && apt-get install -y \
+    build-essential \
+    python3-dev \
+    libpq-dev
+
+# Install Python dependencies
+echo "Installing Python dependencies..."
+pip install --upgrade pip
 pip install -r requirements.txt
 
 # Set up database
