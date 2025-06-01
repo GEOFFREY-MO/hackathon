@@ -385,8 +385,7 @@ def export_data():
                 output.getvalue().encode('utf-8')),
             mimetype='text/csv',
             as_attachment=True,
-            download_name=f'inventory_export_{
-                datetime.now().strftime("%Y%m%d_%H%M%S")}.csv')
+            download_name=f'inventory_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv')
     except Exception as e:
         flash('Error exporting data.', 'danger')
         return redirect(url_for('admin.admin_dashboard'))
