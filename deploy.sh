@@ -21,13 +21,15 @@ pip install -r requirements.txt
 
 # Set up environment
 echo "Setting up environment..."
-export FLASK_APP=app.py
+export FLASK_APP=backend/app.py
 export FLASK_ENV=production
-export PYTHONPATH=$PYTHONPATH:$(pwd)
+export PYTHONPATH=/opt/render/project/src
 
 # Run database migrations
 echo "Running database migrations..."
+cd backend
 flask db upgrade
+cd ..
 
 # Start the application
 echo "Starting application..."

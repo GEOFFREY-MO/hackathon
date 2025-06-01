@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 from werkzeug.security import generate_password_hash
 from datetime import datetime
-from database.models import db
+from backend.database.models import db
 from commands import create_test_shop, verify_database, check_database, reset_database, create_default_resources
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -59,7 +59,7 @@ def create_app():
     login_manager.login_view = 'auth.login'
 
     # Import models
-    from database.models import Shop, User, Product, Inventory, UnscannedSale
+    from backend.database.models import Shop, User, Product, Inventory, UnscannedSale
 
     # Register commands
     app.cli.add_command(create_test_shop)
