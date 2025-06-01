@@ -952,8 +952,7 @@ def export_sales(format):
             total_items = sum(row['Quantity'] for row in data)
             elements.append(
                 Paragraph(
-                    f"Total Sales: KES {
-                        total_sales:.2f}",
+                    f"Total Sales: KES {total_sales:.2f}",
                     styles['Normal']))
             elements.append(
                 Paragraph(
