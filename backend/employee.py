@@ -1339,17 +1339,13 @@ def accounts():
         # Get shop for the current user
         shop = Shop.query.get(current_user.shop_id)
         if not shop:
-            current_app.logger.error(
-                f"No shop found for user {
-                    current_user.id}")
+            current_app.logger.error(f"No shop found for user {current_user.id}")
             flash('Shop not found', 'error')
             return redirect(url_for('employee.dashboard'))
 
         # Get today's date
         today = datetime.now().date()
-        current_app.logger.info(
-            f"Processing accounts for shop {
-                shop.id} on {today}")
+        current_app.logger.info(f"Processing accounts for shop {shop.id} on {today}")
 
         # Initialize totals
         totals = {
@@ -1372,18 +1368,14 @@ def accounts():
                 func.date(Sale.sale_date) == today
             ).all()
 
-            current_app.logger.info(
-                f"Found {
-                    len(today_expenses)} expenses and {
-                    len(today_sales)} sales for today")
+            current_app.logger.info(f"Found {len(today_expenses)} expenses and {len(today_sales)} sales for today")
 
             # Process expenses
             for expense in today_expenses:
                 try:
                     totals['expenses'] += float(expense.amount or 0)
                 except (ValueError, TypeError) as e:
-                    current_app.logger.error(
-                        f"Error converting expense amount: {str(e)}")
+                    current_app.logger.error(f"Error converting expense amount: {str(e)}")
                     continue
 
             # Process sales
@@ -1398,8 +1390,7 @@ def accounts():
                     elif sale.payment_method == 'bank':
                         totals['bank'] += sale_total
                 except (ValueError, TypeError) as e:
-                    current_app.logger.error(
-                        f"Error calculating sale total: {str(e)}")
+                    current_app.logger.error(f"Error calculating sale total: {str(e)}")
                     continue
 
             # Calculate grand total
@@ -1408,9 +1399,7 @@ def accounts():
             current_app.logger.info(f"Calculated totals: {totals}")
 
         except Exception as e:
-            current_app.logger.error(
-                f"Error processing today's data: {
-                    str(e)}", exc_info=True)
+            current_app.logger.error(f"Error processing today's data: {str(e)}", exc_info=True)
             flash('Error processing today\'s financial data', 'error')
             today_expenses = []
 
@@ -1456,9 +1445,7 @@ def accounts():
                         elif sale.payment_method == 'bank':
                             daily_data[sale_date]['bank'] += sale_total
                 except (ValueError, TypeError) as e:
-                    current_app.logger.error(
-                        f"Error calculating historical sale total: {
-                            str(e)}")
+                    current_app.logger.error(f"Error calculating historical sale total: {str(e)}")
                     continue
 
             # Process historical expenses
@@ -1469,9 +1456,7 @@ def accounts():
                         daily_data[expense_date]['expenses'] += float(
                             expense.amount or 0)
                 except (ValueError, TypeError) as e:
-                    current_app.logger.error(
-                        f"Error calculating historical expense amount: {
-                            str(e)}")
+                    current_app.logger.error(f"Error calculating historical expense amount: {str(e)}")
                     continue
 
             # Calculate grand totals and convert to list
@@ -1482,14 +1467,10 @@ def accounts():
                     data['till'] + data['bank'] - data['expenses']
                 historical_data.append(data)
 
-            current_app.logger.info(
-                f"Processed historical data for {
-                    len(historical_data)} days")
+            current_app.logger.info(f"Processed historical data for {len(historical_data)} days")
 
         except Exception as e:
-            current_app.logger.error(
-                f"Error processing historical data: {
-                    str(e)}", exc_info=True)
+            current_app.logger.error(f"Error processing historical data: {str(e)}", exc_info=True)
             flash('Error loading historical financial data', 'error')
             historical_data = []
 
@@ -1499,9 +1480,7 @@ def accounts():
                                historical_data=historical_data)
 
     except Exception as e:
-        current_app.logger.error(
-            f"Error in accounts page: {
-                str(e)}", exc_info=True)
+        current_app.logger.error(f"Error in accounts page: {str(e)}", exc_info=True)
         flash('An error occurred while loading the accounts page', 'error')
         return redirect(url_for('employee.dashboard'))
 
@@ -1511,15 +1490,12 @@ def accounts():
 def get_accounts_data():
     try:
         period = request.args.get('period', 'today')
-        current_app.logger.info(
-            f"Processing accounts data request for period: {period}")
+        current_app.logger.info(f"Processing accounts data request for period: {period}")
 
         # Get shop for the current user
         shop = Shop.query.get(current_user.shop_id)
         if not shop:
-            current_app.logger.error(
-                f"No shop found for user {
-                    current_user.id}")
+            current_app.logger.error(f"No shop found for user {current_user.id}")
             return jsonify({
                 'success': False,
                 'message': 'Shop not found'
@@ -1546,9 +1522,7 @@ def get_accounts_data():
                     'message': 'Invalid period'
                 }), 400
         except Exception as e:
-            current_app.logger.error(
-                f"Error calculating date range: {
-                    str(e)}", exc_info=True)
+            current_app.logger.error(f"Error calculating date range: {str(e)}", exc_info=True)
             return jsonify({
                 'success': False,
                 'message': 'Error calculating date range'
@@ -1592,10 +1566,7 @@ def get_accounts_data():
                     elif sale.payment_method == 'bank':
                         summary['bank'] += sale_total
                 except (ValueError, TypeError) as e:
-                    current_app.logger.error(
-                        f"Error processing sale {
-                            sale.id}: {
-                            str(e)}")
+                    current_app.logger.error(f"Error processing sale {sale.id}: {str(e)}")
                     continue
 
             # Process expenses
@@ -1603,10 +1574,7 @@ def get_accounts_data():
                 try:
                     summary['expenses'] += float(expense.amount or 0)
                 except (ValueError, TypeError) as e:
-                    current_app.logger.error(
-                        f"Error processing expense {
-                            expense.id}: {
-                            str(e)}")
+                    current_app.logger.error(f"Error processing expense {expense.id}: {str(e)}")
                     continue
 
             # Calculate grand total
@@ -1642,10 +1610,7 @@ def get_accounts_data():
                             elif sale.payment_method == 'bank':
                                 day_data['bank'] += sale_total
                         except (ValueError, TypeError) as e:
-                            current_app.logger.error(
-                                f"Error processing day sale {
-                                    sale.id}: {
-                                    str(e)}")
+                            current_app.logger.error(f"Error processing day sale {sale.id}: {str(e)}")
                             continue
 
                     # Process day's expenses
@@ -1655,10 +1620,7 @@ def get_accounts_data():
                         try:
                             day_data['expenses'] += float(expense.amount or 0)
                         except (ValueError, TypeError) as e:
-                            current_app.logger.error(
-                                f"Error processing day expense {
-                                    expense.id}: {
-                                    str(e)}")
+                            current_app.logger.error(f"Error processing day expense {expense.id}: {str(e)}")
                             continue
 
                     # Calculate day's grand total
@@ -1667,9 +1629,7 @@ def get_accounts_data():
                         day_data['expenses']
                     accounts_data.append(day_data)
                 except Exception as e:
-                    current_app.logger.error(
-                        f"Error processing data for date {current_date}: {
-                            str(e)}")
+                    current_app.logger.error(f"Error processing data for date {current_date}: {str(e)}")
                     continue
 
                 current_date += timedelta(days=1)
@@ -1686,16 +1646,10 @@ def get_accounts_data():
                         'amount': float(expense.amount or 0)
                     })
                 except (ValueError, TypeError) as e:
-                    current_app.logger.error(
-                        f"Error formatting expense {
-                            expense.id}: {
-                            str(e)}")
+                    current_app.logger.error(f"Error formatting expense {expense.id}: {str(e)}")
                     continue
 
-            current_app.logger.info(
-                f"Successfully processed {
-                    len(accounts_data)} days of data and {
-                    len(expenses_data)} expenses")
+            current_app.logger.info(f"Successfully processed {len(accounts_data)} days of data and {len(expenses_data)} expenses")
 
             return jsonify({
                 'success': True,
@@ -1705,18 +1659,14 @@ def get_accounts_data():
             })
 
         except Exception as e:
-            current_app.logger.error(
-                f"Error processing financial data: {
-                    str(e)}", exc_info=True)
+            current_app.logger.error(f"Error processing financial data: {str(e)}", exc_info=True)
             return jsonify({
                 'success': False,
                 'message': f'Error processing financial data: {str(e)}'
             }), 500
 
     except Exception as e:
-        current_app.logger.error(
-            f"Error in get_accounts_data: {
-                str(e)}", exc_info=True)
+        current_app.logger.error(f"Error in get_accounts_data: {str(e)}", exc_info=True)
         return jsonify({
             'success': False,
             'message': f'An error occurred while fetching the data: {str(e)}'
@@ -1833,9 +1783,7 @@ def delete_expense(id):
         })
 
     except Exception as e:
-        current_app.logger.error(
-            f"Error deleting expense {id}: {
-                str(e)}", exc_info=True)
+        current_app.logger.error(f"Error deleting expense {id}: {str(e)}", exc_info=True)
         db.session.rollback()
         return jsonify({
             'success': False,
