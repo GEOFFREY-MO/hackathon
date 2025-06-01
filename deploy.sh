@@ -12,9 +12,11 @@ apt-get update && apt-get install -y \
     python3-dev \
     libpq-dev
 
+# Upgrade pip to latest version
+python -m pip install --upgrade pip==25.1.1
+
 # Install Python dependencies
 echo "Installing Python dependencies..."
-pip install --upgrade pip
 pip install -r requirements.txt
 
 # Set up database
