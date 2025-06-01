@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block title %}Add New Shop - SmartRetail AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-3 col-lg-2 d-md-block bg-gradient-primary sidebar" style="position: fixed; top: 3rem; left: 0; height: calc(100vh - 3rem); overflow-y: auto; z-index: 1001; background: linear-gradient(45deg, #4e73df, #224abe);">
+            <div class="position-sticky">
+                <div class="sidebar-header mb-4 px-3 pt-4" style="background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem;">
+                    <h5 class="text-white mb-0" style="font-weight: 600;">
+                        <i class="fas fa-user-shield me-2"></i>Admin Panel
+                    </h5>
+                </div>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.dashboard') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('admin.manage_shops') }}" style="font-weight: 600; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-store"></i> Shops
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.manage_users') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-users"></i> Users
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.sales_report') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-chart-line"></i> Sales Report
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4" style="margin-left: 16.666667%;">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom" style="position: fixed; top: 2.5rem; right: 0; left: 16.666667%; background: linear-gradient(45deg, #4e73df, #224abe); z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 1rem;">
+                <h1 class="h2 text-white">Add New Shop</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <a href="{{ url_for('admin.manage_shops') }}" class="btn btn-light">
+                        <i class="fas fa-arrow-left"></i> Back to Shops
+                    </a>
+                </div>
+            </div>
+
+            <div style="margin-top: 6rem;">
+                <div class="row justify-content-center">
+                    <div class="col-md-8">
+                        <div class="card shadow-sm">
+                            <div class="card-header py-3 bg-gradient-info text-white">
+                                <h6 class="m-0 font-weight-bold">Shop Information</h6>
+                            </div>
+                            <div class="card-body">
+                                <form method="POST" id="addShopForm">
+                                    <div class="mb-4">
+                                        <label for="name" class="form-label fw-bold">Shop Name</label>
+                                        <input type="text" class="form-control form-control-lg" id="name" name="name" required>
+                                        <div class="form-text">Enter a unique name for the shop.</div>
+                                    </div>
+                                    <div class="mb-4">
+                                        <label for="location" class="form-label fw-bold">Location</label>
+                                        <input type="text" class="form-control form-control-lg" id="location" name="location" required>
+                                        <div class="form-text">Enter the physical location of the shop.</div>
+                                    </div>
+                                    <div class="mb-4">
+                                        <label for="contact" class="form-label fw-bold">Contact Number</label>
+                                        <input type="tel" class="form-control form-control-lg" id="contact" name="contact" required>
+                                        <div class="form-text">Enter the shop's contact number.</div>
+                                    </div>
+                                    <div class="mb-4">
+                                        <label for="email" class="form-label fw-bold">Email</label>
+                                        <input type="email" class="form-control form-control-lg" id="email" name="email" required>
+                                        <div class="form-text">Enter the shop's email address.</div>
+                                    </div>
+                                    <div class="d-flex justify-content-between mt-4">
+                                        <a href="{{ url_for('admin.manage_shops') }}" class="btn btn-secondary btn-lg">
+                                            <i class="fas fa-times"></i> Cancel
+                                        </a>
+                                        <button type="submit" class="btn btn-primary btn-lg">
+                                            <i class="fas fa-plus"></i> Add Shop
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+}
+
+.bg-gradient-info {
+    background: linear-gradient(45deg, #36b9cc, #258391);
+}
+
+.card {
+    border: none;
+    border-radius: 0.35rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    border-bottom: none;
+}
+
+.form-control {
+    border-radius: 0.35rem;
+    border: 1px solid #d1d3e2;
+    padding: 0.75rem 1rem;
+    transition: all 0.2s ease;
+}
+
+.form-control:focus {
+    border-color: #4e73df;
+    box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+}
+
+.form-label {
+    color: #5a5c69;
+    margin-bottom: 0.5rem;
+}
+
+.form-text {
+    color: #858796;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.btn {
+    border-radius: 0.35rem;
+    padding: 0.75rem 1.5rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn-primary {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    border: none;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(45deg, #224abe, #4e73df);
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: linear-gradient(45deg, #858796, #60616f);
+    border: none;
+}
+
+.btn-secondary:hover {
+    background: linear-gradient(45deg, #60616f, #858796);
+    transform: translateY(-1px);
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+/* Animation styles */
+.alert {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1050;
+    min-width: 300px;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Loading spinner */
+.fa-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.sidebar .nav-link {
+    padding: 0.8rem 1rem;
+    border-radius: 0.25rem;
+    margin: 0.2rem 0.5rem;
+}
+
+.sidebar .nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: translateX(5px);
+}
+
+.sidebar .nav-link.active {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.sidebar .nav-link i {
+    width: 1.5rem;
+    text-align: center;
+    margin-right: 0.5rem;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('addShopForm');
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Show loading state
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+        submitBtn.disabled = true;
+        
+        // Submit form data
+        fetch(window.location.href, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+                // Redirect after success
+                setTimeout(() => {
+                    window.location.href = '{{ url_for("admin.manage_shops") }}';
+                }, 1500);
+            } else {
+                throw new Error(data.message || 'Failed to add shop');
+            }
+        })
+        .catch(error => {
+            showAlert(error.message, 'danger');
+            // Reset button state
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        });
+    });
+});
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.textContent = message;
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 3000);
+}
+</script>
+{% endblock %} 

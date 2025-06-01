@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Product - SmartRetail AI{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Edit Product</h3>
+                </div>
+                <div class="card-body">
+                    {% with messages = get_flashed_messages() %}
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-info">{{ message }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" action="{{ url_for('product.edit_product', id=product.id) }}">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Product Name</label>
+                            <input type="text" class="form-control" id="name" name="name" 
+                                   value="{{ product.name }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="barcode" class="form-label">Barcode</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="barcode" name="barcode" 
+                                       value="{{ product.barcode }}" required>
+                                <button class="btn btn-outline-secondary" type="button" id="scanButton">
+                                    <i class="fas fa-barcode"></i> Scan
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="category" class="form-label">Category</label>
+                            <input type="text" class="form-control" id="category" name="category" 
+                                   value="{{ product.category }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="marked_price" class="form-label">Marked Price (KES)</label>
+                            <input type="number" class="form-control" id="marked_price" name="marked_price"
+                                   step="0.01" min="0" value="{{ product.marked_price }}" required>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Update Product</button>
+                            <a href="{{ url_for('product.product_list') }}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Barcode Scanner Modal -->
+<div class="modal fade" id="scannerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Scan Barcode</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="scanner-container"></div>
+                <div id="scanner-status" class="mt-2"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const scanButton = document.getElementById('scanButton');
+    const scannerModal = new bootstrap.Modal(document.getElementById('scannerModal'));
+    let html5QrcodeScanner = null;
+
+    scanButton.addEventListener('click', function() {
+        scannerModal.show();
+        if (!html5QrcodeScanner) {
+            html5QrcodeScanner = new Html5QrcodeScanner(
+                "scanner-container",
+                { fps: 10, qrbox: { width: 250, height: 250 } }
+            );
+            
+            html5QrcodeScanner.render((decodedText) => {
+                // Stop scanning
+                html5QrcodeScanner.clear();
+                scannerModal.hide();
+                
+                // Update barcode field
+                document.getElementById('barcode').value = decodedText;
+                
+                // Check if product exists
+                fetch('/inventory/scan', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ barcode: decodedText })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                    } else {
+                        // Update form with product details
+                        document.getElementById('name').value = data.name;
+                        document.getElementById('category').value = data.category;
+                        document.getElementById('marked_price').value = data.marked_price;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error processing barcode');
+                });
+            });
+        }
+    });
+
+    // Clean up scanner when modal is closed
+    document.getElementById('scannerModal').addEventListener('hidden.bs.modal', function () {
+        if (html5QrcodeScanner) {
+            html5QrcodeScanner.clear();
+        }
+    });
+});
+</script>
+{% endblock %} 

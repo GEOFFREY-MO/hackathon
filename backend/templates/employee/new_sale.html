@@ -1,0 +1,297 @@
+{% extends "employee/base.html" %}
+
+{% block title %}New Sale - SmartRetail AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-3 col-lg-2 d-md-block bg-gradient-primary sidebar" style="position: fixed; top: 3rem; left: 0; height: calc(100vh - 3rem); overflow-y: auto; z-index: 1001; background: linear-gradient(45deg, #4e73df, #224abe);">
+            <div class="position-sticky">
+                <div class="sidebar-header mb-4 px-3 pt-4" style="background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem;">
+                    <h5 class="text-white mb-0" style="font-weight: 600;">
+                        <i class="fas fa-user-shield me-2"></i>Employee Panel
+                    </h5>
+                </div>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.dashboard') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('employee.new_sale') }}" style="font-weight: 600; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-cash-register"></i> New Sale
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.product_list') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-box"></i> Products
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.sales_list') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-history"></i> Sales History
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4" style="margin-left: 16.666667%;">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom" style="position: fixed; top: 2.5rem; right: 0; left: 16.666667%; background: linear-gradient(45deg, #4e73df, #224abe); z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 1rem;">
+                <h1 class="h2 text-white">New Sale</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <a href="{{ url_for('employee.product_list') }}" class="btn btn-light">
+                        <i class="fas fa-arrow-left"></i> Back to Products
+                    </a>
+                </div>
+            </div>
+
+            <div style="margin-top: 6rem;">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <!-- Sale Form -->
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="card shadow-sm">
+                            <div class="card-header py-3 bg-gradient-primary text-white">
+                                <h6 class="m-0 font-weight-bold">Record New Sale</h6>
+                            </div>
+                            <div class="card-body">
+                                <form method="POST" action="{{ url_for('employee.new_sale') }}">
+                                    <div class="mb-3">
+                                        <label for="product_id" class="form-label">Select Product</label>
+                                        <select class="form-select" id="product_id" name="product_id" required>
+                                            <option value="">Choose a product...</option>
+                                            {% for product in products %}
+                                            <option value="{{ product.id }}" 
+                                                    data-marked-price="{{ product.marked_price }}"
+                                                    data-stock="{{ product.inventory.quantity }}">
+                                                {{ product.name }} (KES {{ "%.2f"|format(product.marked_price) }})
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="quantity" class="form-label">Quantity</label>
+                                        <input type="number" class="form-control" id="quantity" name="quantity" 
+                                               min="1" value="1" required>
+                                        <div class="form-text">Available stock: <span id="availableStock">-</span></div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="price" class="form-label">Price</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">KES</span>
+                                            <input type="number" class="form-control" id="price" name="price" 
+                                                   step="0.01" min="0" required>
+                                        </div>
+                                        <div class="form-text">Price range: <span id="priceRange">-</span></div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="customer_name" class="form-label">Customer Name (Optional)</label>
+                                        <input type="text" class="form-control" id="customer_name" name="customer_name">
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="payment_method" class="form-label">Payment Method</label>
+                                        <select class="form-select" id="payment_method" name="payment_method" required>
+                                            <option value="cash">Cash</option>
+                                            <option value="till">Till</option>
+                                            <option value="bank">Bank</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="d-grid">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-check"></i> Complete Sale
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="card shadow-sm">
+                            <div class="card-header py-3 bg-gradient-primary text-white">
+                                <h6 class="m-0 font-weight-bold">Sale Summary</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="sale-summary">
+                                    <p><strong>Product:</strong> <span id="summaryProduct">-</span></p>
+                                    <p><strong>Quantity:</strong> <span id="summaryQuantity">-</span></p>
+                                    <p><strong>Price:</strong> KES <span id="summaryPrice">-</span></p>
+                                    <p><strong>Total:</strong> KES <span id="summaryTotal">-</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+}
+
+.card {
+    border: none;
+    border-radius: 0.35rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    border-bottom: none;
+}
+
+.form-label {
+    font-weight: 500;
+    color: #5a5c69;
+}
+
+.sale-summary {
+    background-color: #f8f9fc;
+    padding: 1rem;
+    border-radius: 0.35rem;
+}
+
+.sale-summary p {
+    margin-bottom: 0.5rem;
+}
+
+.sale-summary strong {
+    color: #5a5c69;
+}
+
+.sidebar {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+}
+
+.sidebar-header {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    border-radius: 0.35rem;
+    margin: 0.5rem;
+    padding: 1rem;
+}
+
+.sidebar-header h5 {
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    margin: 0;
+}
+
+.sidebar .nav-link {
+    padding: 0.8rem 1rem;
+    border-radius: 0.35rem;
+    margin: 0.5rem;
+    color: #ffffff;
+    font-weight: 500;
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    transition: all 0.3s ease;
+}
+
+.sidebar .nav-link:hover {
+    background: linear-gradient(45deg, #224abe, #4e73df);
+    transform: translateX(5px);
+    color: #ffffff;
+}
+
+.sidebar .nav-link.active {
+    background: linear-gradient(45deg, #224abe, #4e73df);
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.sidebar .nav-link i {
+    width: 1.5rem;
+    text-align: center;
+    margin-right: 0.5rem;
+    color: #ffffff;
+}
+
+/* Scrollbar Styling */
+.sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.btn {
+    border-radius: 0.35rem;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+.alert {
+    border-radius: 0.35rem;
+    padding: 0.75rem 1rem;
+}
+</style>
+
+{% block scripts %}
+<script>
+document.getElementById('product_id').addEventListener('change', function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const markedPrice = selectedOption.dataset.markedPrice;
+    const stock = selectedOption.dataset.stock;
+    
+    document.getElementById('availableStock').textContent = stock;
+    document.getElementById('priceRange').textContent = `KES ${markedPrice}`;
+    document.getElementById('quantity').max = stock;
+    
+    updateSummary();
+});
+
+document.getElementById('quantity').addEventListener('input', updateSummary);
+document.getElementById('price').addEventListener('input', updateSummary);
+
+function updateSummary() {
+    const productSelect = document.getElementById('product_id');
+    const quantity = document.getElementById('quantity').value;
+    const price = document.getElementById('price').value;
+    
+    document.getElementById('summaryProduct').textContent = productSelect.options[productSelect.selectedIndex].text;
+    document.getElementById('summaryQuantity').textContent = quantity;
+    document.getElementById('summaryPrice').textContent = `KES ${price}`;
+    document.getElementById('summaryTotal').textContent = `KES ${(quantity * price).toFixed(2)}`;
+}
+</script>
+{% endblock %}
+
+{% endblock %} 

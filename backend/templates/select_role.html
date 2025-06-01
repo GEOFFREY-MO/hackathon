@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome - SmartRetail AI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-light">
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card shadow">
+                    <div class="card-body text-center">
+                        <h2 class="card-title mb-4">Welcome to SmartRetail AI</h2>
+                        
+                        {% with messages = get_flashed_messages() %}
+                            {% if messages %}
+                                {% for message in messages %}
+                                    <div class="alert alert-info alert-dismissible fade show" role="alert">
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
+
+                        <p class="mb-4">Please select your role to continue:</p>
+                        
+                        <div class="d-grid gap-3">
+                            <a href="{{ url_for('auth.admin_login') }}" class="btn btn-primary btn-lg">
+                                <i class="fas fa-user-shield"></i> Admin Login
+                            </a>
+                            <a href="{{ url_for('auth.employee_login') }}" class="btn btn-secondary btn-lg">
+                                <i class="fas fa-user-tie"></i> Employee Login
+                            </a>
+                        </div>
+
+                        <div class="mt-4">
+                            <p>New user? <a href="{{ url_for('auth.register') }}" class="text-decoration-none">Register here</a></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

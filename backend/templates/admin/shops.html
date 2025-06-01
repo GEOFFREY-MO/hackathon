@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Shops - SmartRetail AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-3 col-lg-2 d-md-block bg-gradient-primary sidebar" style="position: fixed; top: 3rem; left: 0; height: calc(100vh - 3rem); overflow-y: auto; z-index: 1001; background: linear-gradient(45deg, #4e73df, #224abe);">
+            <div class="position-sticky">
+                <div class="sidebar-header mb-4 px-3 pt-4" style="background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem;">
+                    <h5 class="text-white mb-0" style="font-weight: 600;">
+                        <i class="fas fa-user-shield me-2"></i>Admin Panel
+                    </h5>
+                </div>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.dashboard') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('admin.manage_shops') }}" style="font-weight: 600; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-store"></i> Shops
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.manage_users') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-users"></i> Users
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.sales_report') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-chart-line"></i> Sales Report
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4" style="margin-left: 16.666667%;">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom" style="position: fixed; top: 2.5rem; right: 0; left: 16.666667%; background: linear-gradient(45deg, #4e73df, #224abe); z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 1rem;">
+                <h1 class="h2 text-white">Manage Shops</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <a href="{{ url_for('admin.add_shop') }}" class="btn btn-light">
+                        <i class="fas fa-plus"></i> Add New Shop
+                    </a>
+                </div>
+            </div>
+
+            <div style="margin-top: 6rem;">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <!-- Shops List -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header py-3 bg-gradient-info text-white">
+                        <h6 class="m-0 font-weight-bold">Shops List</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="shopsTable" width="100%" cellspacing="0">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Location</th>
+                                        <th>Contact</th>
+                                        <th>Email</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for shop in shops %}
+                                    <tr id="shop-row-{{ shop.id }}">
+                                        <td>{{ shop.name }}</td>
+                                        <td>{{ shop.location }}</td>
+                                        <td>{{ shop.contact }}</td>
+                                        <td>{{ shop.email }}</td>
+                                        <td>
+                                            <div class="btn-group">
+                                                <a href="{{ url_for('admin.edit_shop', shop_id=shop.id) }}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-edit"></i> Edit
+                                                </a>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                        onclick="confirmDeleteShop('{{ shop.id }}', '{{ shop.name }}')">
+                                                    <i class="fas fa-trash"></i> Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <span id="deleteName" class="fw-bold"></span>?</p>
+                <p class="text-danger mb-0"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+}
+
+.bg-gradient-info {
+    background: linear-gradient(45deg, #36b9cc, #258391);
+}
+
+.card {
+    border: none;
+    border-radius: 0.35rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    border-bottom: none;
+}
+
+.table th {
+    font-weight: 600;
+    background-color: #f8f9fc;
+    border-bottom: 2px solid #e3e6f0;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.badge {
+    font-weight: 500;
+    padding: 0.5em 0.75em;
+    border-radius: 30px;
+}
+
+.btn-group {
+    gap: 0.5rem;
+}
+
+.sidebar .nav-link {
+    padding: 0.8rem 1rem;
+    border-radius: 0.25rem;
+    margin: 0.2rem 0.5rem;
+}
+
+.sidebar .nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: translateX(5px);
+}
+
+.sidebar .nav-link.active {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.sidebar .nav-link i {
+    width: 1.5rem;
+    text-align: center;
+    margin-right: 0.5rem;
+}
+
+/* Animation styles */
+.alert {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1050;
+    min-width: 300px;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.btn {
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+/* Loading spinner */
+.fa-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Modal styles */
+.modal-content {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+    border-bottom: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+    border-radius: 10px 10px 0 0;
+}
+
+.modal-footer {
+    border-top: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+    border-radius: 0 0 10px 10px;
+}
+</style>
+
+<script>
+function confirmDeleteShop(shopId, shopName) {
+    document.getElementById('deleteName').textContent = shopName;
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+    
+    document.getElementById('confirmDeleteBtn').onclick = function() {
+        fetch(`/admin/shops/${shopId}/delete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById(`shop-row-${shopId}`).remove();
+                modal.hide();
+                showAlert('Shop deleted successfully', 'success');
+            } else {
+                showAlert(data.message || 'Error deleting shop', 'danger');
+            }
+        })
+        .catch(error => {
+            showAlert('Error deleting shop', 'danger');
+        });
+    };
+}
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.textContent = message;
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 3000);
+}
+</script>
+{% endblock %} 

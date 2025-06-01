@@ -1,0 +1,985 @@
+{% extends "employee/base.html" %}
+
+{% block title %}Analytics - SmartRetail AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-3 col-lg-2 d-md-block bg-gradient-primary sidebar" style="position: fixed; top: 3rem; left: 0; height: calc(100vh - 3rem); overflow-y: auto; z-index: 1001; background: linear-gradient(45deg, #4e73df, #224abe);">
+            <div class="position-sticky">
+                <div class="sidebar-header mb-4 px-3 pt-4" style="background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem;">
+                    <h5 class="text-white mb-0" style="font-weight: 600;">
+                        <i class="fas fa-user-shield me-2"></i>Employee Panel
+                    </h5>
+                </div>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.dashboard') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.product_list') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-box"></i> Products
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.new_sale') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-cash-register"></i> New Sale
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.services') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-tools"></i> Services
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('employee.analytics') }}" style="font-weight: 600; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-chart-line"></i> Analytics
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4" style="margin-left: 16.666667%;">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom" style="position: fixed; top: 2.5rem; right: 0; left: 16.666667%; background: linear-gradient(45deg, #4e73df, #224abe); z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 1rem;">
+                <h1 class="h2 text-white">Analytics</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group me-2">
+                        <button type="button" class="btn btn-light active" onclick="updateTimeRange('today')">Today</button>
+                        <button type="button" class="btn btn-light" onclick="updateTimeRange('week')">This Week</button>
+                        <button type="button" class="btn btn-light" onclick="updateTimeRange('month')">This Month</button>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 6rem;">
+                <!-- AI Assistant Insights -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card shadow-sm">
+                            <div class="card-header py-3 bg-gradient-primary text-white">
+                                <h6 class="m-0 font-weight-bold">AI Assistant Insights</h6>
+            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="alert alert-info">
+                                            <i class="fas fa-box me-2"></i>
+                                            <strong>Stock Status:</strong> {{ stock_status }}
+                </div>
+            </div>
+                                    <div class="col-md-6">
+                                        <div class="alert alert-success">
+                                            <i class="fas fa-chart-line me-2"></i>
+                                            <strong>Performance:</strong> {{ performance }}
+                        </div>
+                        </div>
+                    </div>
+                                    </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                <!-- Summary Cards -->
+                <div class="row mb-4">
+                    <div class="col-xl-3 col-md-6 mb-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header py-3 bg-gradient-primary text-white">
+                                <h6 class="m-0 font-weight-bold">Total Sales</h6>
+                                    </div>
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col mr-2">
+                                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Revenue</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800 total-sales">KES {{ "%.2f"|format(total_sales) }}</div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                                    </div>
+                                    </div>
+                                </div>
+                    
+                    <div class="col-xl-3 col-md-6 mb-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header py-3 bg-gradient-success text-white">
+                                <h6 class="m-0 font-weight-bold">Products Sold</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col mr-2">
+                                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Units</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800 total-products">{{ total_products_sold }}</div>
+                        </div>
+                                    <div class="col-auto">
+                                        <i class="fas fa-box fa-2x text-gray-300"></i>
+                                    </div>
+                                </div>
+                            </div>
+                                </div>
+                            </div>
+
+                    <div class="col-xl-3 col-md-6 mb-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header py-3 bg-gradient-info text-white">
+                                <h6 class="m-0 font-weight-bold">Services Rendered</h6>
+                        </div>
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col mr-2">
+                                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Services</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800 total-services">{{ total_services_rendered }}</div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="fas fa-tools fa-2x text-gray-300"></i>
+                                    </div>
+                                </div>
+                    </div>
+                </div>
+            </div>
+
+                    <div class="col-xl-3 col-md-6 mb-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header py-3 bg-gradient-warning text-white">
+                                <h6 class="m-0 font-weight-bold">Average Transaction</h6>
+                        </div>
+                        <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col mr-2">
+                                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Value</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800 avg-transaction">KES {{ "%.2f"|format(average_transaction) }}</div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="fas fa-chart-line fa-2x text-gray-300"></i>
+                                    </div>
+                                </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+                <!-- Charts Row -->
+                <div class="row">
+                    <!-- Sales Trend Chart -->
+                    <div class="col-xl-8 col-lg-7">
+                        <div class="card shadow-sm mb-4">
+                            <div class="card-header py-3 bg-gradient-primary text-white">
+                                <h6 class="m-0 font-weight-bold">Sales Trend</h6>
+                        </div>
+                        <div class="card-body">
+                                <canvas id="salesTrendChart" style="height: 300px;"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                    <!-- Payment Methods Chart -->
+                    <div class="col-xl-4 col-lg-5">
+                        <div class="card shadow-sm mb-4">
+                            <div class="card-header py-3 bg-gradient-primary text-white">
+                                <h6 class="m-0 font-weight-bold">Payment Methods</h6>
+                        </div>
+                        <div class="card-body">
+                                <canvas id="paymentMethodsChart" style="height: 300px;"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Products and Services -->
+                <div class="row">
+                    <!-- Top Products -->
+                    <div class="col-xl-6">
+                        <div class="card shadow-sm mb-4">
+                            <div class="card-header py-3 bg-gradient-primary text-white">
+                                <h6 class="m-0 font-weight-bold">Top Selling Products</h6>
+                        </div>
+                        <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover top-products">
+                                        <thead>
+                                            <tr>
+                                                <th>Product</th>
+                                                <th>Units Sold</th>
+                                                <th>Revenue</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for product in top_products %}
+                                            <tr>
+                                                <td>{{ product.name }}</td>
+                                                <td>{{ product.units_sold }}</td>
+                                                <td>KES {{ "%.2f"|format(product.revenue) }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                        </div>
+                    </div>
+                </div>
+                    </div>
+
+                    <!-- Top Services -->
+                    <div class="col-xl-6">
+                        <div class="card shadow-sm mb-4">
+                            <div class="card-header py-3 bg-gradient-primary text-white">
+                                <h6 class="m-0 font-weight-bold">Popular Services</h6>
+                        </div>
+                        <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover top-services">
+                                        <thead>
+                                            <tr>
+                                                <th>Service</th>
+                                                <th>Times Rendered</th>
+                                                <th>Revenue</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for service in top_services %}
+                                            <tr>
+                                                <td>{{ service.name }}</td>
+                                                <td>{{ service.times_rendered }}</td>
+                                                <td>KES {{ "%.2f"|format(service.revenue) }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+                <!-- Resource Status -->
+            <div class="row">
+                <div class="col-12">
+                        <div class="card shadow-sm mb-4">
+                            <div class="card-header py-3 bg-gradient-primary text-white">
+                                <h6 class="m-0 font-weight-bold">Resource Status</h6>
+                        </div>
+                        <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Resource</th>
+                                                <th>Current Quantity</th>
+                                                <th>Last Updated</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for resource in resources %}
+                                            <tr>
+                                                <td>{{ resource.name }}</td>
+                                                <td>{{ shop_resources[resource.id].quantity }}</td>
+                                                <td>{{ shop_resources[resource.id].last_updated.strftime('%Y-%m-%d %H:%M') if shop_resources[resource.id].last_updated else 'Never' }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- AI Assistant Chat Interface -->
+<div class="chat-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
+    <div class="chat-box" id="chatBox" style="display: none; width: 380px; height: 550px; background: #ffffff; border-radius: 15px; box-shadow: 0 5px 25px rgba(0,0,0,0.15); transition: all 0.3s ease;">
+        <div class="chat-header bg-gradient-primary text-white p-3" style="border-radius: 15px 15px 0 0; background: linear-gradient(45deg, #4e73df, #224abe);">
+            <h6 class="mb-0 d-flex align-items-center">
+                <i class="fas fa-robot me-2"></i>AI Assistant
+                <button class="btn btn-sm btn-light float-end ms-auto" onclick="toggleChat()" style="border-radius: 50%; width: 30px; height: 30px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </h6>
+        </div>
+        <div class="chat-messages p-3" id="chatMessages" style="height: 430px; overflow-y: auto; background: #f8f9fc;">
+            <div class="message assistant">
+                <div class="message-content">
+                    Hello! I'm your AI Assistant. I can help you analyze your business performance, manage inventory, and provide insights. How can I assist you today?
+                </div>
+            </div>
+        </div>
+        <div class="chat-input p-3" style="border-top: 1px solid #e3e6f0; background: #ffffff;">
+            <form id="chatForm" class="d-flex">
+                <input type="text" id="messageInput" class="form-control me-2" placeholder="Type your message..." style="border-radius: 20px; border: 1px solid #e3e6f0; padding: 12px 20px; font-size: 14px;">
+                <button type="submit" class="btn btn-primary" style="border-radius: 50%; width: 45px; height: 45px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+    <button class="btn btn-primary rounded-circle chat-toggle-btn" onclick="toggleChat()" style="width: 60px; height: 60px; box-shadow: 0 5px 15px rgba(78, 115, 223, 0.3); transition: all 0.3s ease;">
+        <i class="fas fa-robot fa-lg"></i>
+    </button>
+</div>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+}
+
+.bg-gradient-success {
+    background: linear-gradient(45deg, #1cc88a, #13855c);
+}
+
+.bg-gradient-info {
+    background: linear-gradient(45deg, #36b9cc, #258391);
+}
+
+.bg-gradient-warning {
+    background: linear-gradient(45deg, #f6c23e, #dda20a);
+}
+
+.card {
+    border: none;
+    border-radius: 0.35rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    border-bottom: none;
+}
+
+.sidebar {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+}
+
+.sidebar-header {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    border-radius: 0.35rem;
+    margin: 0.5rem;
+    padding: 1rem;
+}
+
+.sidebar-header h5 {
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    margin: 0;
+}
+
+.sidebar .nav-link {
+    padding: 0.8rem 1rem;
+    border-radius: 0.35rem;
+    margin: 0.5rem;
+    color: #ffffff;
+    font-weight: 500;
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    transition: all 0.3s ease;
+}
+
+.sidebar .nav-link:hover {
+    background: linear-gradient(45deg, #224abe, #4e73df);
+    transform: translateX(5px);
+    color: #ffffff;
+}
+
+.sidebar .nav-link.active {
+    background: linear-gradient(45deg, #224abe, #4e73df);
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.sidebar .nav-link i {
+    width: 1.5rem;
+    text-align: center;
+    margin-right: 0.5rem;
+    color: #ffffff;
+}
+
+/* Scrollbar Styling */
+.sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.btn {
+    border-radius: 0.35rem;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+.table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.text-xs {
+    font-size: 0.7rem;
+}
+
+.text-gray-300 {
+    color: #dddfeb !important;
+}
+
+.text-gray-800 {
+    color: #5a5c69 !important;
+}
+
+.alert {
+    border: none;
+    border-radius: 0.35rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.alert i {
+    font-size: 1.1rem;
+}
+
+/* Chat Styles */
+.chat-container {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.chat-box {
+    transform: translateY(20px);
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.chat-box.show {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.message {
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+    animation: messageSlide 0.3s ease;
+}
+
+@keyframes messageSlide {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.message.user {
+    align-items: flex-end;
+}
+
+.message.assistant {
+    align-items: flex-start;
+}
+
+.message-content {
+    padding: 12px 18px;
+    border-radius: 18px;
+    max-width: 85%;
+    word-wrap: break-word;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    position: relative;
+}
+
+.message.user .message-content {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    color: white;
+    border-bottom-right-radius: 5px;
+}
+
+.message.assistant .message-content {
+    background: #ffffff;
+    color: #333;
+    border-bottom-left-radius: 5px;
+    border: 1px solid #e3e6f0;
+}
+
+.message-content::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    width: 15px;
+    height: 15px;
+}
+
+.message.user .message-content::before {
+    right: -7px;
+    background: linear-gradient(45deg, #224abe, #224abe);
+    border-radius: 0 0 0 15px;
+}
+
+.message.assistant .message-content::before {
+    left: -7px;
+    background: #ffffff;
+    border-radius: 0 0 15px 0;
+    border-right: 1px solid #e3e6f0;
+    border-bottom: 1px solid #e3e6f0;
+}
+
+.chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: #f8f9fc;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: #4e73df;
+    border-radius: 3px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background: #224abe;
+}
+
+#messageInput {
+    transition: all 0.3s ease;
+}
+
+#messageInput:focus {
+    border-color: #4e73df;
+    box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.15);
+}
+
+.btn-primary {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(45deg, #224abe, #4e73df);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(78, 115, 223, 0.3);
+}
+
+.chat-toggle-btn {
+    transition: all 0.3s ease;
+}
+
+.chat-toggle-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(78, 115, 223, 0.4);
+}
+
+/* Enhanced Typing Animation */
+.typing-indicator {
+    display: flex;
+    padding: 12px 18px;
+    background: #ffffff;
+    border-radius: 18px;
+    margin-bottom: 15px;
+    border: 1px solid #e3e6f0;
+    width: fit-content;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.typing-indicator span {
+    height: 8px;
+    width: 8px;
+    background: #4e73df;
+    border-radius: 50%;
+    display: inline-block;
+    margin: 0 2px;
+    animation: typing 1.4s infinite;
+    opacity: 0.4;
+}
+
+.typing-indicator span:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.typing-indicator span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typing {
+    0% { transform: translateY(0); opacity: 0.4; }
+    50% { transform: translateY(-5px); opacity: 0.8; }
+    100% { transform: translateY(0); opacity: 0.4; }
+}
+
+/* Message Animation */
+@keyframes messageAppear {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.message {
+    animation: messageAppear 0.3s ease;
+}
+</style>
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Set active class for analytics link
+    const analyticsLink = document.querySelector('a[href="{{ url_for("employee.analytics") }}"]');
+    if (analyticsLink) {
+        analyticsLink.classList.add('active');
+    }
+
+    // Sales Trend Chart
+    const salesTrendCtx = document.getElementById('salesTrendChart').getContext('2d');
+    const salesTrendChart = new Chart(salesTrendCtx, {
+                type: 'line',
+                data: {
+            labels: {{ sales_trend.labels|tojson }},
+                    datasets: [{
+                label: 'Sales',
+                data: {{ sales_trend.data|tojson }},
+                        borderColor: '#4e73df',
+                backgroundColor: 'rgba(78, 115, 223, 0.05)',
+                borderWidth: 2,
+                pointRadius: 3,
+                pointBackgroundColor: '#4e73df',
+                pointBorderColor: '#fff',
+                pointHoverRadius: 5,
+                fill: true,
+                tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                    display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                                }
+                },
+                x: {
+                    grid: {
+                        display: false
+                            }
+                        }
+                    }
+                }
+            });
+
+    // Payment Methods Chart
+    const paymentMethodsCtx = document.getElementById('paymentMethodsChart').getContext('2d');
+    const paymentMethodsChart = new Chart(paymentMethodsCtx, {
+                type: 'doughnut',
+                data: {
+            labels: {{ payment_methods.labels|tojson }},
+                    datasets: [{
+                data: {{ payment_methods.data|tojson }},
+                        backgroundColor: [
+                    '#4e73df',
+                    '#1cc88a',
+                    '#36b9cc'
+                ],
+                hoverBackgroundColor: [
+                    '#2e59d9',
+                    '#17a673',
+                    '#2c9faf'
+                ],
+                hoverBorderColor: "rgba(234, 236, 244, 1)",
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                    position: 'bottom'
+                }
+            },
+            cutout: '70%'
+        }
+    });
+
+    // Store chart instances for updating
+    window.salesTrendChart = salesTrendChart;
+    window.paymentMethodsChart = paymentMethodsChart;
+
+    // Add initial greeting
+    addMessage("Hello! I'm your AI Assistant. I can help you analyze your business performance, manage inventory, and provide insights. How can I assist you today?");
+});
+
+function updateTimeRange(range) {
+    // Update the active state of the buttons
+    document.querySelectorAll('.btn-group .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+
+    // Show loading state
+    const loadingAlert = document.createElement('div');
+    loadingAlert.className = 'alert alert-info';
+    loadingAlert.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Loading analytics data...';
+    document.querySelector('.card-body').prepend(loadingAlert);
+
+    // Fetch new data based on the selected time range
+    fetch(`/employee/analytics/data?period=${range}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Remove loading alert
+            loadingAlert.remove();
+            
+            // Update the charts and tables with new data
+            updateCharts(data);
+            updateSummaryCards(data);
+            updateTables(data);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            loadingAlert.remove();
+            
+            // Show error alert
+            const errorAlert = document.createElement('div');
+            errorAlert.className = 'alert alert-danger';
+            errorAlert.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>Error updating analytics data. Please try again.';
+            document.querySelector('.card-body').prepend(errorAlert);
+            
+            // Remove error alert after 5 seconds
+            setTimeout(() => {
+                errorAlert.remove();
+            }, 5000);
+        });
+}
+
+function updateCharts(data) {
+    if (!data || !data.sales_trend || !data.payment_methods) {
+        console.error('Invalid data format received');
+        return;
+    }
+
+    try {
+        // Update sales trend chart
+        if (window.salesTrendChart) {
+            window.salesTrendChart.data.labels = data.sales_trend.labels || [];
+            window.salesTrendChart.data.datasets[0].data = data.sales_trend.data || [];
+            window.salesTrendChart.update();
+        }
+
+        // Update payment methods chart
+        if (window.paymentMethodsChart) {
+            window.paymentMethodsChart.data.labels = data.payment_methods.labels || [];
+            window.paymentMethodsChart.data.datasets[0].data = data.payment_methods.data || [];
+            window.paymentMethodsChart.update();
+        }
+    } catch (error) {
+        console.error('Error updating charts:', error);
+    }
+}
+
+function updateSummaryCards(data) {
+    if (!data) {
+        console.error('Invalid data format received');
+        return;
+    }
+
+    try {
+        // Update summary card values
+        const totalSalesElement = document.querySelector('.total-sales');
+        const totalProductsElement = document.querySelector('.total-products');
+        const totalServicesElement = document.querySelector('.total-services');
+        const avgTransactionElement = document.querySelector('.avg-transaction');
+
+        if (totalSalesElement) {
+            totalSalesElement.textContent = `KES ${(data.total_sales || 0).toFixed(2)}`;
+        }
+        if (totalProductsElement) {
+            totalProductsElement.textContent = data.total_products_sold || 0;
+        }
+        if (totalServicesElement) {
+            totalServicesElement.textContent = data.total_services_rendered || 0;
+        }
+        if (avgTransactionElement) {
+            avgTransactionElement.textContent = `KES ${(data.average_transaction || 0).toFixed(2)}`;
+        }
+    } catch (error) {
+        console.error('Error updating summary cards:', error);
+    }
+}
+
+function updateTables(data) {
+    if (!data) {
+        console.error('Invalid data format received');
+        return;
+    }
+
+    try {
+        // Update top products table
+        const productsTable = document.querySelector('.top-products tbody');
+        if (productsTable && data.top_products) {
+            productsTable.innerHTML = data.top_products.map(product => `
+                <tr>
+                    <td>${product.name || 'N/A'}</td>
+                    <td>${product.units_sold || 0}</td>
+                    <td>KES ${(product.revenue || 0).toFixed(2)}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Update top services table
+        const servicesTable = document.querySelector('.top-services tbody');
+        if (servicesTable && data.top_services) {
+            servicesTable.innerHTML = data.top_services.map(service => `
+                <tr>
+                    <td>${service.name || 'N/A'}</td>
+                    <td>${service.times_rendered || 0}</td>
+                    <td>KES ${(service.revenue || 0).toFixed(2)}</td>
+                </tr>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Error updating tables:', error);
+    }
+}
+
+// Chat functionality
+let chatBox = document.getElementById('chatBox');
+let chatMessages = document.getElementById('chatMessages');
+let chatForm = document.getElementById('chatForm');
+let messageInput = document.getElementById('messageInput');
+
+function toggleChat() {
+    if (chatBox.style.display === 'none') {
+        chatBox.style.display = 'block';
+        // Trigger reflow
+        chatBox.offsetHeight;
+        chatBox.classList.add('show');
+    } else {
+        chatBox.classList.remove('show');
+        setTimeout(() => {
+            chatBox.style.display = 'none';
+        }, 300);
+    }
+}
+
+function addMessage(message, isUser = false) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
+    
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+    contentDiv.innerHTML = message;
+    
+    messageDiv.appendChild(contentDiv);
+    chatMessages.appendChild(messageDiv);
+    
+    // Scroll to bottom with smooth animation
+    chatMessages.scrollTo({
+        top: chatMessages.scrollHeight,
+        behavior: 'smooth'
+    });
+}
+
+function showTypingIndicator() {
+    const indicator = document.createElement('div');
+    indicator.className = 'typing-indicator';
+    indicator.innerHTML = '<span></span><span></span><span></span>';
+    chatMessages.appendChild(indicator);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return indicator;
+}
+
+function removeTypingIndicator(indicator) {
+    if (indicator && indicator.parentNode) {
+        indicator.parentNode.removeChild(indicator);
+    }
+}
+
+chatForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const message = messageInput.value.trim();
+    if (!message) return;
+
+            // Add user message
+    addMessage(message, true);
+    messageInput.value = '';
+
+    // Show typing indicator
+    const typingIndicator = showTypingIndicator();
+
+    try {
+        const response = await fetch('/employee/ai-assistant', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ message: message })
+        });
+
+        const data = await response.json();
+        
+        // Remove typing indicator
+        removeTypingIndicator(typingIndicator);
+
+        if (data.success) {
+            // Add assistant response
+            addMessage(data.response);
+        } else {
+            addMessage('Sorry, I encountered an error. Please try again.');
+        }
+    } catch (error) {
+        removeTypingIndicator(typingIndicator);
+        addMessage('Sorry, I encountered an error. Please try again.');
+        console.error('Error:', error);
+    }
+});
+</script>
+{% endblock %}
+
+{% endblock %} 

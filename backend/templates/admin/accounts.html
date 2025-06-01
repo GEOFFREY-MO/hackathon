@@ -1,0 +1,288 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Accounts - SmartRetail AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="h3 mb-0 text-gray-800">Shop Accounts</h2>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('admin.download_shop_accounts', period=period, shop_id=selected_shop_id) }}" 
+               class="btn btn-success" id="downloadReportBtn">
+                <i class="fas fa-download me-2"></i>Download Report
+            </a>
+        </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="downloadLoading" class="position-fixed top-50 start-50 translate-middle d-none">
+        <div class="spinner-border text-success" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <div class="mt-2 text-success">Preparing your report...</div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Date Range</label>
+                    <select class="form-select" id="periodFilter" onchange="updatePeriod(this.value)">
+                        <option value="today" {% if period == 'today' %}selected{% endif %}>Today</option>
+                        <option value="week" {% if period == 'week' %}selected{% endif %}>This Week</option>
+                        <option value="month" {% if period == 'month' %}selected{% endif %}>This Month</option>
+                        <option value="year" {% if period == 'year' %}selected{% endif %}>This Year</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Shop</label>
+                    <select class="form-select" id="shopFilter" onchange="updateShop(this.value)">
+                        <option value="">All Shops</option>
+                        {% for shop in shops %}
+                        <option value="{{ shop.id }}" {% if selected_shop_id == shop.id %}selected{% endif %}>
+                            {{ shop.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shop Breakdown Section -->
+    {% for shop in shop_breakdown %}
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">{{ shop.shop_name }}</h6>
+            <span class="badge bg-primary">Total: KES {{ "%.2f"|format(shop.total) }}</span>
+        </div>
+        <div class="card-body">
+            <!-- Summary Cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-success text-white h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title mb-0">Cash</h6>
+                                    <h4 class="mt-2 mb-0">KES {{ "%.2f"|format(shop.cash) }}</h4>
+                                </div>
+                                <i class="fas fa-money-bill-wave fa-2x opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title mb-0">Till</h6>
+                                    <h4 class="mt-2 mb-0">KES {{ "%.2f"|format(shop.till) }}</h4>
+                                </div>
+                                <i class="fas fa-cash-register fa-2x opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title mb-0">Bank</h6>
+                                    <h4 class="mt-2 mb-0">KES {{ "%.2f"|format(shop.bank) }}</h4>
+                                </div>
+                                <i class="fas fa-university fa-2x opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-danger text-white h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title mb-0">Expenses</h6>
+                                    <h4 class="mt-2 mb-0">KES {{ "%.2f"|format(shop.expenses) }}</h4>
+                                </div>
+                                <i class="fas fa-receipt fa-2x opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Daily Breakdown Table -->
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>Cash</th>
+                            <th>Till</th>
+                            <th>Bank</th>
+                            <th>Expenses</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for day in shop.daily_breakdown %}
+                        <tr>
+                            <td>{{ day.date }}</td>
+                            <td>KES {{ "%.2f"|format(day.cash) }}</td>
+                            <td>KES {{ "%.2f"|format(day.till) }}</td>
+                            <td>KES {{ "%.2f"|format(day.bank) }}</td>
+                            <td>KES {{ "%.2f"|format(day.expenses) }}</td>
+                            <td class="fw-bold {% if day.total >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                KES {{ "%.2f"|format(day.total) }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+function updatePeriod(period) {
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.set('period', period);
+    window.location.href = currentUrl.toString();
+}
+
+function updateShop(shopId) {
+    const currentUrl = new URL(window.location.href);
+    if (shopId) {
+        currentUrl.searchParams.set('shop_id', shopId);
+    } else {
+        currentUrl.searchParams.delete('shop_id');
+    }
+    window.location.href = currentUrl.toString();
+}
+
+// Add download button handler
+document.getElementById('downloadReportBtn').addEventListener('click', async function(e) {
+    e.preventDefault();
+    
+    try {
+        // Show loading state
+        const button = this;
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing Report...';
+        button.disabled = true;
+        
+        // Get the download URL
+        const downloadUrl = this.href;
+        
+        // Add a small delay to show the loading state
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Create a hidden iframe for the download
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+        
+        // Set up error handling
+        iframe.onload = function() {
+            try {
+                // Check if the response is an error
+                const response = iframe.contentDocument.body.textContent;
+                if (response.includes('error') || response.includes('Error')) {
+                    throw new Error('Error generating report');
+                }
+            } catch (error) {
+                console.error('Download error:', error);
+                alert('Error generating the report. Please try again.');
+            } finally {
+                // Clean up
+                document.body.removeChild(iframe);
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }
+        };
+        
+        // Trigger download
+        iframe.src = downloadUrl;
+        
+        // Reset button state after a delay
+        setTimeout(() => {
+            button.innerHTML = originalText;
+            button.disabled = false;
+        }, 5000);
+        
+    } catch (error) {
+        console.error('Download error:', error);
+        alert('Error generating the report. Please try again.');
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }
+});
+</script>
+{% endblock %}
+
+{% block styles %}
+<style>
+.card {
+    border: none;
+    border-radius: 0.35rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    background-color: #f8f9fc;
+    border-bottom: 1px solid #e3e6f0;
+}
+
+.table th {
+    font-weight: 600;
+    background-color: #f8f9fc;
+    border-bottom: 2px solid #e3e6f0;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.badge {
+    font-weight: 500;
+    padding: 0.5em 0.75em;
+    border-radius: 30px;
+}
+
+.badge.bg-success {
+    background-color: #198754 !important;
+}
+
+.badge.bg-danger {
+    background-color: #dc3545 !important;
+}
+
+.btn-group .btn {
+    border-radius: 0.35rem;
+    margin: 0 2px;
+}
+
+.btn-group .btn:first-child {
+    margin-left: 0;
+}
+
+.btn-group .btn:last-child {
+    margin-right: 0;
+}
+
+.table-info {
+    background-color: #e8f5e9 !important;
+}
+
+.form-select {
+    min-width: 200px;
+}
+</style>
+{% endblock %} 

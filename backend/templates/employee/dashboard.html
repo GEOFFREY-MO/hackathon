@@ -1,0 +1,499 @@
+{% extends "employee/base.html" %}
+
+{% block title %}Employee Dashboard - SmartRetail AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-3 col-lg-2 d-md-block bg-gradient-primary sidebar" style="position: fixed; top: 3rem; left: 0; height: calc(100vh - 3rem); overflow-y: auto; z-index: 1001; background: linear-gradient(45deg, #4e73df, #224abe);">
+            <div class="position-sticky">
+                <div class="sidebar-header mb-4 px-3 pt-4" style="background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem;">
+                    <h5 class="text-white mb-0" style="font-weight: 600;">
+                        <i class="fas fa-user-shield me-2"></i>Employee Panel
+                    </h5>
+                </div>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('employee.dashboard') }}" style="font-weight: 600; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.new_sale') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-cash-register"></i> New Sale
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.services') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-tools"></i> Services
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.analytics') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-chart-bar"></i> Analytics
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.product_list') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-box"></i> Products
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.resources') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-boxes"></i> Resources
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4" style="margin-left: 16.666667%;">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom" style="position: fixed; top: 2.5rem; right: 0; left: 16.666667%; background: linear-gradient(45deg, #4e73df, #224abe); z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 1rem;">
+                <h1 class="h2 text-white">Dashboard Overview</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group me-2">
+                        <a href="{{ url_for('employee.new_sale') }}" class="btn btn-light">
+                            <i class="fas fa-cash-register"></i> New Sale
+                        </a>
+                        <a href="{{ url_for('employee.services') }}" class="btn btn-light">
+                            <i class="fas fa-tools"></i> Record Service
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 6rem;">
+                <!-- Statistics -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stat-card bg-gradient-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title mb-1">Today's Income</h6>
+                                    <h2 class="card-text mb-0">KES {{ "%.2f"|format(today_sales + today_service_income) }}</h2>
+                                        <small class="text-white-50">Total Revenue</small>
+                                </div>
+                                <div class="stat-icon">
+                                    <i class="fas fa-chart-line fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card bg-gradient-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title mb-1">Today's Transactions</h6>
+                                    <h2 class="card-text mb-0">{{ today_transactions }}</h2>
+                                        <small class="text-white-50">Total Sales</small>
+                                </div>
+                                <div class="stat-icon">
+                                    <i class="fas fa-shopping-cart fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card bg-gradient-info text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title mb-1">Active Services</h6>
+                                    <h2 class="card-text mb-0">{{ active_services_count }}</h2>
+                                        <small class="text-white-50">Ongoing Services</small>
+                                </div>
+                                <div class="stat-icon">
+                                    <i class="fas fa-tools fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card bg-gradient-warning text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title mb-1">Low Stock Items</h6>
+                                    <h2 class="card-text mb-0">{{ low_stock_count }}</h2>
+                                        <small class="text-white-50">Need Attention</small>
+                                </div>
+                                <div class="stat-icon">
+                                    <i class="fas fa-exclamation-triangle fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+                <!-- Sales Overview -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card shadow-sm">
+                            <div class="card-header py-3 bg-gradient-info text-white">
+                                <h6 class="m-0 font-weight-bold">Sales Overview</h6>
+                            </div>
+                            <div class="card-body">
+            <div class="row">
+                                    <div class="col-6 mb-3">
+                                        <h6 class="text-muted mb-1">Product Sales</h6>
+                                        <h4 class="mb-0">KES {{ "%.2f"|format(today_sales) }}</h4>
+                                    </div>
+                                    <div class="col-6 mb-3">
+                                        <h6 class="text-muted mb-1">Service Income</h6>
+                                        <h4 class="mb-0">KES {{ "%.2f"|format(today_service_income) }}</h4>
+                                    </div>
+                                    <div class="col-6">
+                                        <h6 class="text-muted mb-1">Total Items</h6>
+                                        <h4 class="mb-0">{{ today_transactions }}</h4>
+                                    </div>
+                                    <div class="col-6">
+                                        <h6 class="text-muted mb-1">Average Sale</h6>
+                                        <h4 class="mb-0">KES {{ "%.2f"|format((today_sales + today_service_income) / today_transactions if today_transactions > 0 else 0) }}</h4>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card shadow-sm">
+                            <div class="card-header py-3 bg-gradient-success text-white">
+                                <h6 class="m-0 font-weight-bold">Recent Activity</h6>
+                        </div>
+                        <div class="card-body">
+                                <div class="activity-feed">
+                                        {% for sale in recent_sales %}
+                                    <div class="activity-item mb-3">
+                                        <div class="d-flex align-items-center">
+                                            <div class="activity-icon me-3">
+                                                <i class="fas fa-shopping-cart text-success"></i>
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-1">{{ sale.product.name }}</h6>
+                                                <p class="mb-0 text-muted">
+                                                    Sold {{ sale.quantity }} items for KES {{ "%.2f"|format(sale.quantity * sale.price) }}
+                                                </p>
+                                                <small class="text-muted">{{ sale.sale_date.strftime('%Y-%m-%d %H:%M') }}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                        {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Services -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header py-3 bg-gradient-primary text-white">
+                        <h6 class="m-0 font-weight-bold">Active Services</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Service</th>
+                                            <th>Customer</th>
+                                        <th>Status</th>
+                                        <th>Date</th>
+                                        <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for service in active_services %}
+                                        <tr>
+                                            <td>{{ service.service.name }}</td>
+                                            <td>{{ service.customer_name }}</td>
+                                        <td>
+                                            <span class="badge bg-{{ 'success' if service.status == 'completed' else 'warning' }}">
+                                                {{ service.status }}
+                                                </span>
+                                            </td>
+                                        <td>{{ service.sale_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                                        <td>
+                                            <a href="{{ url_for('employee.services') }}" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-eye"></i> View
+                                            </a>
+                                        </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+        </main>
+    </div>
+</div>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+}
+
+.bg-gradient-success {
+    background: linear-gradient(45deg, #1cc88a, #13855c);
+}
+
+.bg-gradient-info {
+    background: linear-gradient(45deg, #36b9cc, #258391);
+}
+
+.bg-gradient-warning {
+    background: linear-gradient(45deg, #f6c23e, #dda20a);
+}
+
+.card {
+    border: none;
+    border-radius: 0.35rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    border-bottom: none;
+}
+
+.stat-card {
+    border: none;
+    border-radius: 0.35rem;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+}
+
+.stat-card .card-body {
+    padding: 1.5rem;
+}
+
+.stat-card .card-title {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+}
+
+.stat-card .card-text {
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.stat-card small {
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+
+.stat-icon {
+    opacity: 0.8;
+    transition: transform 0.2s ease;
+}
+
+.stat-card:hover .stat-icon {
+    transform: scale(1.1);
+}
+
+.sidebar {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+}
+
+.sidebar-header {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    border-radius: 0.35rem;
+    margin: 0.5rem;
+    padding: 1rem;
+}
+
+.sidebar-header h5 {
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    margin: 0;
+}
+
+.sidebar .nav-link {
+    padding: 0.8rem 1rem;
+    border-radius: 0.35rem;
+    margin: 0.5rem;
+    color: #ffffff;
+    font-weight: 500;
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    transition: all 0.3s ease;
+}
+
+.sidebar .nav-link:hover {
+    background: linear-gradient(45deg, #224abe, #4e73df);
+    transform: translateX(5px);
+    color: #ffffff;
+}
+
+.sidebar .nav-link.active {
+    background: linear-gradient(45deg, #224abe, #4e73df);
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.sidebar .nav-link i {
+    width: 1.5rem;
+    text-align: center;
+    margin-right: 0.5rem;
+    color: #ffffff;
+}
+
+.sidebar-footer {
+    position: relative;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.user-avatar:hover {
+    background: rgba(255, 255, 255, 0.12);
+    transform: scale(1.05);
+}
+
+/* Scrollbar Styling */
+.sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.activity-feed {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.activity-item {
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    transition: background-color 0.2s ease;
+}
+
+.activity-item:hover {
+    background-color: #f8f9fa;
+}
+
+.activity-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(28, 200, 138, 0.1);
+    border-radius: 50%;
+}
+
+.btn {
+    border-radius: 0.35rem;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+.alert {
+    border-radius: 0.35rem;
+    padding: 0.75rem 1rem;
+}
+
+/* Animation styles */
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+}
+    to {
+        transform: translateX(0);
+        opacity: 1;
+}
+}
+
+/* Loading spinner */
+.fa-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Card styles for sidebar */
+.sidebar .card {
+    background-color: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 0.35rem;
+    margin: 0.5rem;
+}
+
+.sidebar .card-header {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-bottom: none;
+    color: #ffffff;
+    }
+    
+.sidebar .card-body {
+    color: #ffffff;
+}
+</style>
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add active class to current nav item
+    const currentPath = window.location.pathname;
+    const navLinks = document.querySelectorAll('.sidebar .nav-link');
+    
+    navLinks.forEach(link => {
+        if (link.getAttribute('href') === currentPath) {
+            link.classList.add('active');
+        } else {
+            link.classList.remove('active');
+    }
+    });
+});
+</script>
+{% endblock %}
+
+{% endblock %} 

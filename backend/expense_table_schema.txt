@@ -1,0 +1,8 @@
+Expense table schema:
+(0, 'id', 'INTEGER', 0, None, 1)
+(1, 'shop_id', 'INTEGER', 1, None, 0)
+(2, 'category', 'VARCHAR(50)', 1, None, 0)
+(3, 'description', 'TEXT', 1, None, 0)
+(4, 'amount', 'DECIMAL(10,2)', 1, None, 0)
+(5, 'date', 'DATETIME', 1, None, 0)
+(6, 'created_by', 'INTEGER', 1, None, 0)

@@ -1,0 +1,68 @@
+{% extends "employee/base.html" %}
+
+{% block title %}Employee Dashboard - SmartRetail AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Dashboard Header -->
+    <header class="mb-4">
+        <h2 class="h3 mb-0 text-gray-800"><i class="fas fa-store"></i> {{ shop.name }} - Employee Dashboard</h2>
+        <p class="subtitle text-muted"><i class="fas fa-cogs"></i> Manage inventory & respond to stock changes efficiently</p>
+    </header>
+
+    <!-- Inventory Table -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-boxes"></i> Current Inventory</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th><i class="fas fa-box"></i> Product</th>
+                            <th><i class="fas fa-layer-group"></i> Quantity</th>
+                            <th><i class="fas fa-adjust"></i> Adjust Unscanned Sale</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product, qty in inventory %}
+                        <tr>
+                            <td>{{ product.name }}</td>
+                            <td>{{ qty }}</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('adjust_unscanned') }}" class="d-flex flex-wrap gap-2">
+                                    <input type="hidden" name="product_id" value="{{ product.id }}">
+                                    <input type="number" name="quantity" placeholder="Qty" min="1" class="form-control form-control-sm w-25" required>
+                                    <input type="text" name="reason" placeholder="Reason" class="form-control form-control-sm w-50" required>
+                                    <button class="btn btn-sm btn-warning" type="submit"><i class="fas fa-edit"></i> Adjust</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Low Stock Alerts -->
+    {% if low_stock %}
+    <div class="card shadow mb-4 border-left-danger">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-danger"><i class="fas fa-exclamation-triangle"></i> Low Stock Alerts</h6>
+        </div>
+        <div class="card-body">
+            <div class="list-group">
+                {% for item in low_stock %}
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-box-open text-warning me-2"></i>{{ item.name }}</span>
+                    <span class="badge bg-danger rounded-pill">{{ item.qty }} left</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

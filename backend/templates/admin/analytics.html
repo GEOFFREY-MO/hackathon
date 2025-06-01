@@ -1,0 +1,1497 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics - SmartRetail AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-3 col-lg-2 d-md-block bg-white sidebar">
+            <div class="position-sticky">
+                <div class="sidebar-header mb-4 px-3 pt-4">
+                    <h5 class="text-primary mb-0">Admin Panel</h5>
+                </div>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.dashboard') }}">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.manage_shops') }}">
+                            <i class="fas fa-store"></i> Shops
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.manage_users') }}">
+                            <i class="fas fa-users"></i> Users
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.sales_report') }}">
+                            <i class="fas fa-chart-bar"></i> Sales Report
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('admin.analytics') }}">
+                            <i class="fas fa-chart-line"></i> Analytics
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">Analytics Dashboard</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group me-2">
+                        <button type="button" class="btn btn-outline-primary" id="refreshBtn">
+                            <i class="fas fa-sync-alt"></i> Refresh Data
+                        </button>
+                        <button type="button" class="btn btn-outline-success" id="exportBtn">
+                            <i class="fas fa-download"></i> Export Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading Overlay -->
+            <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+                <div class="loading-spinner">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading analytics data...</p>
+                </div>
+            </div>
+
+            <!-- Error Alert -->
+            <div id="errorAlert" class="alert alert-danger" role="alert" style="display: none;">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <span id="errorMessage"></span>
+            </div>
+
+            <!-- AI Assistant Floating Button -->
+            <div class="ai-assistant-container">
+                <button class="ai-assistant-button" id="aiAssistantButton">
+                    <i class="fas fa-robot"></i>
+                </button>
+                
+                <!-- AI Assistant Chat Window -->
+                <div class="ai-assistant-window" id="aiAssistantWindow">
+                    <div class="ai-assistant-header">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-robot text-primary me-2"></i>
+                            <h5 class="mb-0">AI Assistant</h5>
+                        </div>
+                        <div class="ai-assistant-controls">
+                            <button class="btn btn-sm btn-link" id="refreshInsights">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                            <button class="btn btn-sm btn-link" id="minimizeAssistant">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="ai-assistant-content">
+                        <!-- Insights Section -->
+                        <div class="insights-section">
+                            <div class="insight-item mb-3">
+                                <div class="d-flex align-items-start">
+                                    <div class="insight-icon me-3">
+                                        <i class="fas fa-chart-line text-primary"></i>
+                                    </div>
+                                    <div class="insight-content">
+                                        <h6 class="insight-title">Sales Trend Analysis</h6>
+                                        <p class="insight-text" id="salesTrendInsight">Loading insights...</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="insight-item mb-3">
+                                <div class="d-flex align-items-start">
+                                    <div class="insight-icon me-3">
+                                        <i class="fas fa-store text-success"></i>
+                                    </div>
+                                    <div class="insight-content">
+                                        <h6 class="insight-title">Shop Performance Insights</h6>
+                                        <p class="insight-text" id="shopPerformanceInsight">Loading insights...</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="insight-item mb-3">
+                                <div class="d-flex align-items-start">
+                                    <div class="insight-icon me-3">
+                                        <i class="fas fa-box text-warning"></i>
+                                    </div>
+                                    <div class="insight-content">
+                                        <h6 class="insight-title">Product & Category Analysis</h6>
+                                        <p class="insight-text" id="productCategoryInsight">Loading insights...</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="insight-item">
+                                <div class="d-flex align-items-start">
+                                    <div class="insight-icon me-3">
+                                        <i class="fas fa-clock text-info"></i>
+                                    </div>
+                                    <div class="insight-content">
+                                        <h6 class="insight-title">Time-based Insights</h6>
+                                        <p class="insight-text" id="timeBasedInsight">Loading insights...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chat Section -->
+                        <div class="chat-section">
+                            <div class="chat-messages" id="chatMessages">
+                                <div class="message ai-message">
+                                    <div class="message-content">
+                                        Hello! I'm your AI Assistant. How can I help you analyze your data today?
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="chat-input-container">
+                                <div class="chat-input">
+                                    <input type="text" id="chatInput" placeholder="Ask me anything about your data...">
+                                    <button id="sendMessage">
+                                        <i class="fas fa-paper-plane"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Time Period Filter -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-primary active" data-period="week">Last 7 Days</button>
+                                <button type="button" class="btn btn-outline-primary" data-period="month">Last 30 Days</button>
+                                <button type="button" class="btn btn-outline-primary" data-period="year">Last 12 Months</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sales Trends -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-white">
+                            <h5 class="card-title mb-0">Sales Trends</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="salesTrendChart" height="300"></canvas>
+                                <div class="chart-loading" style="display: none;">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Shop Performance Comparison -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-white">
+                            <h5 class="card-title mb-0">Shop Performance Comparison</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="shopPerformanceChart" height="300"></canvas>
+                                <div class="chart-loading" style="display: none;">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-white">
+                            <h5 class="card-title mb-0">Top Performing Products</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="topProductsChart" height="300"></canvas>
+                                <div class="chart-loading" style="display: none;">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sales Distribution -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-white">
+                            <h5 class="card-title mb-0">Sales by Category</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="categoryDistributionChart" height="300"></canvas>
+                                <div class="chart-loading" style="display: none;">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-white">
+                            <h5 class="card-title mb-0">Hourly Sales Distribution</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="hourlyDistributionChart" height="300"></canvas>
+                                <div class="chart-loading" style="display: none;">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inventory Analytics -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-white">
+                            <h5 class="card-title mb-0">Inventory Analytics</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="chart-container">
+                                        <canvas id="stockLevelChart" height="300"></canvas>
+                                        <div class="chart-loading" style="display: none;">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="chart-container">
+                                        <canvas id="reorderTrendChart" height="300"></canvas>
+                                        <div class="chart-loading" style="display: none;">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Sidebar Styles */
+.sidebar {
+    position: fixed;
+    top: 56px;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    padding: 0;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    height: calc(100vh - 56px);
+    overflow-y: auto;
+    background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+    border-right: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.sidebar-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    padding-bottom: 1rem;
+}
+
+.sidebar .nav-link {
+    font-weight: 500;
+    color: #495057;
+    padding: 0.75rem 1.5rem;
+    transition: all 0.3s ease;
+    border-left: 3px solid transparent;
+}
+
+.sidebar .nav-link:hover {
+    color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.05);
+    border-left: 3px solid #0d6efd;
+}
+
+.sidebar .nav-link.active {
+    color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.1);
+    border-left: 3px solid #0d6efd;
+}
+
+.sidebar .nav-link i {
+    margin-right: 0.75rem;
+    width: 20px;
+    text-align: center;
+    color: #6c757d;
+    transition: color 0.3s ease;
+}
+
+.sidebar .nav-link:hover i,
+.sidebar .nav-link.active i {
+    color: #0d6efd;
+}
+
+/* Main Content Styles */
+main {
+    margin-top: 56px;
+    padding-top: 1.5rem;
+    background-color: #f8f9fa;
+}
+
+/* Card Styles */
+.card {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    margin-bottom: 1.5rem;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+    background-color: #fff;
+    border-bottom: 1px solid #eee;
+    padding: 1rem 1.5rem;
+}
+
+.card-title {
+    margin-bottom: 0;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+/* Button Styles */
+.btn-group {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.btn-outline-primary {
+    color: #4e73df;
+    border-color: #4e73df;
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary.active {
+    background-color: #4e73df;
+    border-color: #4e73df;
+    color: #fff;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .sidebar {
+        position: static;
+        height: auto;
+        margin-top: 56px;
+    }
+    
+    main {
+        margin-top: 1rem;
+    }
+}
+
+/* AI Assistant Styles */
+.ai-assistant-container {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 1000;
+}
+
+.ai-assistant-button {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ai-assistant-button:hover {
+    transform: scale(1.1) rotate(5deg);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.ai-assistant-button.active {
+    background: linear-gradient(45deg, #224abe, #4e73df);
+    transform: scale(0.95);
+}
+
+.ai-assistant-window {
+    position: fixed;
+    top: 3.5rem;
+    right: 2rem;
+    width: 400px;
+    height: calc(100vh - 5rem);
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    transform: translateY(20px);
+    opacity: 0;
+    transition: all 0.3s ease;
+    z-index: 1000;
+}
+
+.ai-assistant-window.show {
+    display: flex;
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.ai-assistant-header {
+    padding: 1.25rem;
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.ai-assistant-header h5 {
+    margin: 0;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.ai-assistant-controls {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.ai-assistant-controls button {
+    color: white;
+    opacity: 0.8;
+    transition: all 0.2s ease;
+    padding: 0.25rem;
+    border-radius: 6px;
+}
+
+.ai-assistant-controls button:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.ai-assistant-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #f8f9fc;
+}
+
+.insights-section {
+    padding: 1.25rem;
+    overflow-y: auto;
+    border-bottom: 1px solid #e3e6f0;
+    max-height: 50%;
+}
+
+.insight-item {
+    background: white;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease;
+}
+
+.insight-item:hover {
+    transform: translateY(-2px);
+}
+
+.insight-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    background: rgba(78, 115, 223, 0.1);
+}
+
+.insight-title {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #2e59d9;
+}
+
+.insight-text {
+    color: #5a5c69;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.chat-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #f8f9fc;
+    position: relative;
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 1.25rem;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    max-height: calc(100% - 80px);
+}
+
+.message {
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.message:last-child {
+    margin-bottom: 0;
+}
+
+.message.user-message {
+    align-items: flex-end;
+}
+
+.message.ai-message {
+    align-items: flex-start;
+}
+
+.message-content {
+    padding: 1rem 1.25rem;
+    border-radius: 16px;
+    max-width: 85%;
+    word-wrap: break-word;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    line-height: 1.5;
+}
+
+.user-message .message-content {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.ai-message .message-content {
+    background: white;
+    border-bottom-left-radius: 4px;
+}
+
+.chat-input-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-top: 1px solid #e3e6f0;
+    padding: 1rem;
+    z-index: 10;
+}
+
+.chat-input {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    background: #f8f9fc;
+    border-radius: 12px;
+    padding: 0.5rem;
+}
+
+.chat-input input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: 1px solid #e3e6f0;
+    border-radius: 8px;
+    outline: none;
+    transition: all 0.2s ease;
+    background: white;
+    font-size: 0.95rem;
+}
+
+.chat-input input:focus {
+    border-color: #4e73df;
+    box-shadow: 0 0 0 3px rgba(78, 115, 223, 0.1);
+}
+
+.chat-input input:disabled {
+    background-color: #f8f9fc;
+    cursor: not-allowed;
+}
+
+.chat-input button {
+    width: 42px;
+    height: 42px;
+    border: none;
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    color: white;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chat-input button:hover:not(:disabled) {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(78, 115, 223, 0.3);
+}
+
+.chat-input button:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+/* Typing Indicator */
+.typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0.5rem;
+}
+
+.typing-indicator span {
+    width: 8px;
+    height: 8px;
+    background: #4e73df;
+    border-radius: 50%;
+    animation: typing 1s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typing {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-5px);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .ai-assistant-window {
+        width: calc(100% - 2rem);
+        height: calc(100vh - 5rem);
+        top: 3.5rem;
+        right: 1rem;
+    }
+    
+    .message-content {
+        max-width: 90%;
+    }
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-spinner {
+    text-align: center;
+}
+
+.loading-spinner p {
+    margin-top: 1rem;
+    color: #4e73df;
+    font-weight: 500;
+}
+
+/* Chart Container */
+.chart-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.chart-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Error Alert */
+.alert {
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.alert i {
+    font-size: 1.1rem;
+}
+
+/* Export Button */
+.btn-outline-success {
+    color: #1cc88a;
+    border-color: #1cc88a;
+}
+
+.btn-outline-success:hover {
+    background-color: #1cc88a;
+    border-color: #1cc88a;
+    color: #fff;
+}
+
+/* Chart Loading Animation */
+@keyframes chartLoading {
+    0% {
+        opacity: 0.5;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0.5;
+    }
+}
+
+.chart-loading .spinner-border {
+    animation: chartLoading 1.5s infinite;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize charts
+    initializeCharts();
+    
+    // Handle period filter changes
+    document.querySelectorAll('[data-period]').forEach(button => {
+        button.addEventListener('click', function() {
+            document.querySelectorAll('[data-period]').forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            updateCharts(this.dataset.period);
+        });
+    });
+    
+    // Handle refresh button
+    document.getElementById('refreshBtn').addEventListener('click', function() {
+        const activePeriod = document.querySelector('[data-period].active').dataset.period;
+        updateCharts(activePeriod);
+    });
+
+    // Handle export button
+    document.getElementById('exportBtn').addEventListener('click', function() {
+        const activePeriod = document.querySelector('[data-period].active').dataset.period;
+        exportData(activePeriod);
+    });
+
+    // AI Assistant Chat Functionality
+    const aiAssistantButton = document.getElementById('aiAssistantButton');
+    const aiAssistantWindow = document.getElementById('aiAssistantWindow');
+    const minimizeAssistant = document.getElementById('minimizeAssistant');
+    const refreshInsights = document.getElementById('refreshInsights');
+    const chatInput = document.getElementById('chatInput');
+    const sendMessage = document.getElementById('sendMessage');
+    const chatMessages = document.getElementById('chatMessages');
+    let isProcessing = false;
+    let messageQueue = [];
+    let isTyping = false;
+
+    // Toggle AI Assistant window with animation
+    aiAssistantButton.addEventListener('click', function() {
+        aiAssistantWindow.classList.toggle('show');
+        aiAssistantButton.classList.toggle('active');
+        
+        if (aiAssistantWindow.classList.contains('show')) {
+            chatInput.focus();
+            // Scroll to bottom of chat messages
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    });
+
+    // Minimize AI Assistant window
+    minimizeAssistant.addEventListener('click', function() {
+        aiAssistantWindow.classList.remove('show');
+        aiAssistantButton.classList.remove('active');
+    });
+
+    // Refresh insights
+    refreshInsights.addEventListener('click', function() {
+        const activePeriod = document.querySelector('[data-period].active').dataset.period;
+        updateInsights(window.analyticsData || {});
+        
+        // Add visual feedback
+        this.classList.add('rotating');
+        setTimeout(() => this.classList.remove('rotating'), 1000);
+    });
+
+    // Send message function with typing animation
+    async function sendChatMessage() {
+        const message = chatInput.value.trim();
+        if (!message || isProcessing) return;
+
+        try {
+            isProcessing = true;
+            chatInput.disabled = true;
+            sendMessage.disabled = true;
+
+            // Add user message to chat
+            addMessageToChat('user', message);
+            chatInput.value = '';
+
+            // Show typing indicator
+            const typingMessage = addTypingIndicator();
+            
+            // Send message to backend
+            const response = await fetch('/admin/ai-assistant', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message: message })
+            });
+
+            const data = await response.json();
+            
+            // Remove typing indicator
+            typingMessage.remove();
+            
+            if (data.success) {
+                // Add AI response with typing animation
+                await typeMessage(data.response);
+            } else {
+                addMessageToChat('ai', 'Sorry, I encountered an error. Please try again.');
+                console.error('AI Assistant Error:', data.message);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            if (typingMessage) typingMessage.remove();
+            addMessageToChat('ai', 'Sorry, I encountered an error. Please try again.');
+        } finally {
+            isProcessing = false;
+            chatInput.disabled = false;
+            sendMessage.disabled = false;
+            chatInput.focus();
+        }
+    }
+
+    // Add message to chat with typing animation
+    function addMessageToChat(type, content) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}-message`;
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        contentDiv.textContent = content;
+        
+        messageDiv.appendChild(contentDiv);
+        chatMessages.appendChild(messageDiv);
+        
+        // Scroll to bottom with smooth animation
+        chatMessages.scrollTo({
+            top: chatMessages.scrollHeight,
+            behavior: 'smooth'
+        });
+        
+        return messageDiv;
+    }
+
+    // Add typing indicator
+    function addTypingIndicator() {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message ai-message';
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        contentDiv.innerHTML = `
+            <div class="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        `;
+        
+        messageDiv.appendChild(contentDiv);
+        chatMessages.appendChild(messageDiv);
+        
+        // Scroll to bottom
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        return messageDiv;
+    }
+
+    // Type message with animation
+    async function typeMessage(message) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message ai-message';
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        messageDiv.appendChild(contentDiv);
+        chatMessages.appendChild(messageDiv);
+        
+        // Type message character by character
+        for (let i = 0; i < message.length; i++) {
+            contentDiv.textContent = message.substring(0, i + 1);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            await new Promise(resolve => setTimeout(resolve, 20));
+        }
+        
+        return messageDiv;
+    }
+
+    // Send message on button click
+    sendMessage.addEventListener('click', sendChatMessage);
+
+    // Send message on Enter key
+    chatInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendChatMessage();
+        }
+    });
+
+    // Focus input when window is opened
+    aiAssistantWindow.addEventListener('transitionend', function() {
+        if (aiAssistantWindow.classList.contains('show')) {
+            chatInput.focus();
+        }
+    });
+
+    // Initialize insights
+    updateInsights(window.analyticsData || {});
+});
+
+function initializeCharts() {
+    // Sales Trend Chart
+    const salesTrendCtx = document.getElementById('salesTrendChart').getContext('2d');
+    window.salesTrendChart = new Chart(salesTrendCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Daily Sales',
+                data: [],
+                borderColor: '#4e73df',
+                tension: 0.4,
+                fill: true,
+                backgroundColor: 'rgba(78, 115, 223, 0.1)'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'KES ' + value.toLocaleString();
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Shop Performance Chart
+    const shopPerformanceCtx = document.getElementById('shopPerformanceChart').getContext('2d');
+    window.shopPerformanceChart = new Chart(shopPerformanceCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Sales',
+                data: [],
+                backgroundColor: '#4e73df'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'KES ' + value.toLocaleString();
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Top Products Chart
+    const topProductsCtx = document.getElementById('topProductsChart').getContext('2d');
+    window.topProductsChart = new Chart(topProductsCtx, {
+        type: 'doughnut',
+        data: {
+            labels: [],
+            datasets: [{
+                data: [],
+                backgroundColor: [
+                    '#4e73df',
+                    '#1cc88a',
+                    '#36b9cc',
+                    '#f6c23e',
+                    '#e74a3b'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right'
+                }
+            }
+        }
+    });
+
+    // Category Distribution Chart
+    const categoryDistributionCtx = document.getElementById('categoryDistributionChart').getContext('2d');
+    window.categoryDistributionChart = new Chart(categoryDistributionCtx, {
+        type: 'pie',
+        data: {
+            labels: [],
+            datasets: [{
+                data: [],
+                backgroundColor: [
+                    '#4e73df',
+                    '#1cc88a',
+                    '#36b9cc',
+                    '#f6c23e',
+                    '#e74a3b'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right'
+                }
+            }
+        }
+    });
+
+    // Hourly Distribution Chart
+    const hourlyDistributionCtx = document.getElementById('hourlyDistributionChart').getContext('2d');
+    window.hourlyDistributionChart = new Chart(hourlyDistributionCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Sales',
+                data: [],
+                backgroundColor: '#4e73df'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'KES ' + value.toLocaleString();
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Stock Level Chart
+    const stockLevelCtx = document.getElementById('stockLevelChart').getContext('2d');
+    window.stockLevelChart = new Chart(stockLevelCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Current Stock',
+                data: [],
+                backgroundColor: '#4e73df'
+            }, {
+                label: 'Reorder Level',
+                data: [],
+                backgroundColor: '#e74a3b',
+                type: 'line'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top'
+                }
+            }
+        }
+    });
+
+    // Reorder Trend Chart
+    const reorderTrendCtx = document.getElementById('reorderTrendChart').getContext('2d');
+    window.reorderTrendChart = new Chart(reorderTrendCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Reorder Frequency',
+                data: [],
+                borderColor: '#4e73df',
+                tension: 0.4,
+                fill: true,
+                backgroundColor: 'rgba(78, 115, 223, 0.1)'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+
+    // Initial data load
+    updateCharts('week');
+}
+
+function updateInsights(data) {
+    // Sales Trend Insights
+    const salesTrendInsight = document.getElementById('salesTrendInsight');
+    const salesData = data.sales_trend.data;
+    const avgSales = salesData.reduce((a, b) => a + b, 0) / salesData.length;
+    const maxSales = Math.max(...salesData);
+    const minSales = Math.min(...salesData);
+    const trend = salesData[salesData.length - 1] > salesData[0] ? 'increasing' : 'decreasing';
+    
+    salesTrendInsight.innerHTML = `
+        Sales have been ${trend} over the selected period. 
+        Average daily sales: KES ${avgSales.toLocaleString(undefined, {maximumFractionDigits: 2})}. 
+        Highest sales: KES ${maxSales.toLocaleString(undefined, {maximumFractionDigits: 2})}. 
+        Lowest sales: KES ${minSales.toLocaleString(undefined, {maximumFractionDigits: 2})}.
+    `;
+
+    // Shop Performance Insights
+    const shopPerformanceInsight = document.getElementById('shopPerformanceInsight');
+    const shopData = data.shop_performance.data;
+    const bestShop = data.shop_performance.labels[shopData.indexOf(Math.max(...shopData))];
+    const totalShopSales = shopData.reduce((a, b) => a + b, 0);
+    
+    shopPerformanceInsight.innerHTML = `
+        ${bestShop} is the top-performing shop with KES ${Math.max(...shopData).toLocaleString(undefined, {maximumFractionDigits: 2})} in sales. 
+        Total sales across all shops: KES ${totalShopSales.toLocaleString(undefined, {maximumFractionDigits: 2})}.
+    `;
+
+    // Product & Category Insights
+    const productCategoryInsight = document.getElementById('productCategoryInsight');
+    const topProduct = data.top_products.labels[0];
+    const topCategory = data.category_distribution.labels[0];
+    const categoryPercentage = ((data.category_distribution.data[0] / data.category_distribution.data.reduce((a, b) => a + b, 0)) * 100).toFixed(1);
+    
+    productCategoryInsight.innerHTML = `
+        ${topProduct} is the best-selling product. 
+        ${topCategory} is the leading category, accounting for ${categoryPercentage}% of total sales.
+    `;
+
+    // Time-based Insights
+    const timeBasedInsight = document.getElementById('timeBasedInsight');
+    const hourlyData = data.hourly_distribution.data;
+    const peakHour = data.hourly_distribution.labels[hourlyData.indexOf(Math.max(...hourlyData))];
+    const peakSales = Math.max(...hourlyData);
+    
+    timeBasedInsight.innerHTML = `
+        Peak sales occur at ${peakHour} with KES ${peakSales.toLocaleString(undefined, {maximumFractionDigits: 2})} in sales. 
+        Consider adjusting staff schedules to match peak hours.
+    `;
+}
+
+function showLoading() {
+    document.getElementById('loadingOverlay').style.display = 'flex';
+    document.querySelectorAll('.chart-loading').forEach(el => el.style.display = 'flex');
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').style.display = 'none';
+    document.querySelectorAll('.chart-loading').forEach(el => el.style.display = 'none');
+}
+
+function showError(message) {
+    const errorAlert = document.getElementById('errorAlert');
+    const errorMessage = document.getElementById('errorMessage');
+    errorMessage.textContent = message;
+    errorAlert.style.display = 'block';
+    setTimeout(() => {
+        errorAlert.style.display = 'none';
+    }, 5000);
+}
+
+function updateCharts(period) {
+    showLoading();
+    
+    // Fetch data from the server
+    fetch(`/admin/analytics/data?period=${period}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to fetch analytics data');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Update Sales Trend Chart
+            salesTrendChart.data.labels = data.sales_trend.labels;
+            salesTrendChart.data.datasets[0].data = data.sales_trend.data;
+            salesTrendChart.update();
+
+            // Update Shop Performance Chart
+            shopPerformanceChart.data.labels = data.shop_performance.labels;
+            shopPerformanceChart.data.datasets[0].data = data.shop_performance.data;
+            shopPerformanceChart.update();
+
+            // Update Top Products Chart
+            topProductsChart.data.labels = data.top_products.labels;
+            topProductsChart.data.datasets[0].data = data.top_products.data;
+            topProductsChart.update();
+
+            // Update Category Distribution Chart
+            categoryDistributionChart.data.labels = data.category_distribution.labels;
+            categoryDistributionChart.data.datasets[0].data = data.category_distribution.data;
+            categoryDistributionChart.update();
+
+            // Update Hourly Distribution Chart
+            hourlyDistributionChart.data.labels = data.hourly_distribution.labels;
+            hourlyDistributionChart.data.datasets[0].data = data.hourly_distribution.data;
+            hourlyDistributionChart.update();
+
+            // Update Stock Level Chart
+            stockLevelChart.data.labels = data.stock_levels.labels;
+            stockLevelChart.data.datasets[0].data = data.stock_levels.current;
+            stockLevelChart.data.datasets[1].data = data.stock_levels.reorder;
+            stockLevelChart.update();
+
+            // Update Reorder Trend Chart
+            reorderTrendChart.data.labels = data.reorder_trend.labels;
+            reorderTrendChart.data.datasets[0].data = data.reorder_trend.data;
+            reorderTrendChart.update();
+
+            // Update AI insights
+            updateInsights(data);
+            
+            // Store data for export
+            window.analyticsData = data;
+            
+            hideLoading();
+        })
+        .catch(error => {
+            console.error('Error fetching analytics data:', error);
+            showError('Failed to load analytics data. Please try again.');
+            hideLoading();
+        });
+}
+
+function exportData(period) {
+    if (!window.analyticsData) {
+        showError('No data available to export. Please refresh the page.');
+        return;
+    }
+
+    // Create a workbook
+    const wb = XLSX.utils.book_new();
+    
+    // Add Sales Trend sheet
+    const salesTrendData = [
+        ['Date', 'Sales (KES)'],
+        ...window.analyticsData.sales_trend.labels.map((label, i) => [
+            label,
+            window.analyticsData.sales_trend.data[i]
+        ])
+    ];
+    const salesTrendSheet = XLSX.utils.aoa_to_sheet(salesTrendData);
+    XLSX.utils.book_append_sheet(wb, salesTrendSheet, 'Sales Trend');
+    
+    // Add Shop Performance sheet
+    const shopPerformanceData = [
+        ['Shop', 'Sales (KES)'],
+        ...window.analyticsData.shop_performance.labels.map((label, i) => [
+            label,
+            window.analyticsData.shop_performance.data[i]
+        ])
+    ];
+    const shopPerformanceSheet = XLSX.utils.aoa_to_sheet(shopPerformanceData);
+    XLSX.utils.book_append_sheet(wb, shopPerformanceSheet, 'Shop Performance');
+    
+    // Add Top Products sheet
+    const topProductsData = [
+        ['Product', 'Sales (KES)'],
+        ...window.analyticsData.top_products.labels.map((label, i) => [
+            label,
+            window.analyticsData.top_products.data[i]
+        ])
+    ];
+    const topProductsSheet = XLSX.utils.aoa_to_sheet(topProductsData);
+    XLSX.utils.book_append_sheet(wb, topProductsSheet, 'Top Products');
+    
+    // Add Category Distribution sheet
+    const categoryData = [
+        ['Category', 'Sales (KES)'],
+        ...window.analyticsData.category_distribution.labels.map((label, i) => [
+            label,
+            window.analyticsData.category_distribution.data[i]
+        ])
+    ];
+    const categorySheet = XLSX.utils.aoa_to_sheet(categoryData);
+    XLSX.utils.book_append_sheet(wb, categorySheet, 'Category Distribution');
+    
+    // Add Hourly Distribution sheet
+    const hourlyData = [
+        ['Hour', 'Sales (KES)'],
+        ...window.analyticsData.hourly_distribution.labels.map((label, i) => [
+            label,
+            window.analyticsData.hourly_distribution.data[i]
+        ])
+    ];
+    const hourlySheet = XLSX.utils.aoa_to_sheet(hourlyData);
+    XLSX.utils.book_append_sheet(wb, hourlySheet, 'Hourly Distribution');
+    
+    // Add Stock Levels sheet
+    const stockData = [
+        ['Product', 'Current Stock', 'Reorder Level'],
+        ...window.analyticsData.stock_levels.labels.map((label, i) => [
+            label,
+            window.analyticsData.stock_levels.current[i],
+            window.analyticsData.stock_levels.reorder[i]
+        ])
+    ];
+    const stockSheet = XLSX.utils.aoa_to_sheet(stockData);
+    XLSX.utils.book_append_sheet(wb, stockSheet, 'Stock Levels');
+    
+    // Add Reorder Trend sheet
+    const reorderData = [
+        ['Date', 'Reorder Count'],
+        ...window.analyticsData.reorder_trend.labels.map((label, i) => [
+            label,
+            window.analyticsData.reorder_trend.data[i]
+        ])
+    ];
+    const reorderSheet = XLSX.utils.aoa_to_sheet(reorderData);
+    XLSX.utils.book_append_sheet(wb, reorderSheet, 'Reorder Trend');
+    
+    // Generate filename
+    const filename = `analytics_report_${period}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    
+    // Save the file
+    XLSX.writeFile(wb, filename);
+}
+</script>
+{% endblock %} 

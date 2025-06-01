@@ -1,0 +1,530 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Resource Management - SmartRetail AI{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">Resource Management</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+        <li class="breadcrumb-item active">Resources</li>
+    </ol>
+
+    <!-- Overview Cards -->
+    <div class="row">
+        <div class="col-xl-3 col-md-6">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body" style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">{{ resources|length }}</h4>
+                            <div>Total Resources</div>
+                        </div>
+                        <i class="fas fa-boxes fa-2x" style="color: #4b6cb7;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body" style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">{{ low_stock_resources|length }}</h4>
+                            <div>Low Stock Items</div>
+                        </div>
+                        <i class="fas fa-exclamation-triangle fa-2x" style="color: #ffc107;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body" style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">{{ shops|length }}</h4>
+                            <div>Active Shops</div>
+                        </div>
+                        <i class="fas fa-store fa-2x" style="color: #28a745;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body" style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">{{ categories|length }}</h4>
+                            <div>Resource Categories</div>
+                        </div>
+                        <i class="fas fa-tags fa-2x" style="color: #17a2b8;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header" style="background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%); color: white;">
+            <i class="fas fa-tools me-1"></i>
+            Resource Management
+            <div class="float-end">
+                <button class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addResourceModal">
+                    <i class="fas fa-plus"></i> Add Resource
+                </button>
+                <a href="{{ url_for('admin.export_resources') }}" class="btn btn-light btn-sm">
+                    <i class="fas fa-file-excel"></i> Export Data
+                </button>
+                <button class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#bulkUpdateModal">
+                    <i class="fas fa-edit"></i> Bulk Update
+                </button>
+                <a href="{{ url_for('admin.manage_categories') }}" class="btn btn-light btn-sm">
+                    <i class="fas fa-tags"></i> Manage Categories
+                </a>
+                <a href="{{ url_for('admin.resource_alerts') }}" class="btn btn-light btn-sm">
+                    <i class="fas fa-bell"></i> View Alerts
+                    {% if alerts|length > 0 %}
+                    <span class="badge bg-danger">{{ alerts|length }}</span>
+                    {% endif %}
+                </a>
+            </div>
+        </div>
+        <div class="card-body" style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
+            <!-- Search and Filter -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <input type="text" id="searchInput" class="form-control" placeholder="Search resources...">
+                        <button class="btn btn-outline-secondary" type="button" id="searchButton">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex justify-content-end">
+                        <select class="form-select w-auto" id="categoryFilter">
+                            <option value="">All Categories</option>
+                            {% for category in categories %}
+                            <option value="{{ category.name }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <select class="form-select w-auto ms-2" id="statusFilter">
+                            <option value="">All Status</option>
+                            <option value="low_stock">Low Stock</option>
+                            <option value="in_stock">In Stock</option>
+                            <option value="out_of_stock">Out of Stock</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resources Table -->
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>
+                                <input type="checkbox" id="selectAll" class="form-check-input">
+                            </th>
+                            <th>Resource Name</th>
+                            <th>Category</th>
+                            <th>Unit</th>
+                            <th>Reorder Level</th>
+                            <th>Cost per Unit</th>
+                            <th>Total Quantity</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for resource in resources %}
+                        <tr>
+                            <td>
+                                <input type="checkbox" class="form-check-input resource-select" value="{{ resource.id }}">
+                            </td>
+                            <td>{{ resource.name }}</td>
+                            <td>{{ resource.category }}</td>
+                            <td>{{ resource.unit }}</td>
+                            <td>{{ resource.reorder_level }}</td>
+                            <td>${{ "%.2f"|format(resource.cost_per_unit) }}</td>
+                            <td>
+                                {% set total_quantity = namespace(value=0) %}
+                                {% for shop in shops %}
+                                    {% set total_quantity.value = total_quantity.value + shop_resources[shop.id][resource.id]|default(0) %}
+                                {% endfor %}
+                                {{ total_quantity.value }} {{ resource.unit }}
+                            </td>
+                            <td>
+                                {% if total_quantity.value <= 0 %}
+                                <span class="badge bg-danger">Out of Stock</span>
+                                {% elif total_quantity.value <= resource.reorder_level %}
+                                <span class="badge bg-warning">Low Stock</span>
+                                {% else %}
+                                <span class="badge bg-success">In Stock</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-primary edit-resource" 
+                                            data-id="{{ resource.id }}"
+                                            data-name="{{ resource.name }}"
+                                            data-category="{{ resource.category }}"
+                                            data-unit="{{ resource.unit }}"
+                                            data-reorder-level="{{ resource.reorder_level }}"
+                                            data-cost-per-unit="{{ resource.cost_per_unit }}"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#editResourceModal">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <a href="{{ url_for('admin.resource_history', resource_id=resource.id) }}" 
+                                       class="btn btn-sm btn-info">
+                                        <i class="fas fa-history"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-danger delete-resource"
+                                            data-id="{{ resource.id }}"
+                                            data-name="{{ resource.name }}"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#deleteResourceModal">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Resource Modal -->
+<div class="modal fade" id="addResourceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%); color: white;">
+                <h5 class="modal-title">Add New Resource</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('admin.add_resource') }}" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Resource Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="category" class="form-label">Category</label>
+                        <select class="form-select" id="category" name="category" required>
+                            {% for category in categories %}
+                            <option value="{{ category.name }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="unit" class="form-label">Unit</label>
+                        <input type="text" class="form-control" id="unit" name="unit" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="reorder_level" class="form-label">Reorder Level</label>
+                        <input type="number" class="form-control" id="reorder_level" name="reorder_level" value="10" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="cost_per_unit" class="form-label">Cost per Unit</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="cost_per_unit" name="cost_per_unit" value="0.00" step="0.01" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%); border: none;">Add Resource</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Resource Modal -->
+<div class="modal fade" id="editResourceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Resource</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editResourceForm" action="" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit_name" class="form-label">Resource Name</label>
+                        <input type="text" class="form-control" id="edit_name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_description" class="form-label">Description</label>
+                        <textarea class="form-control" id="edit_description" name="description" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_category" class="form-label">Category</label>
+                        <select class="form-select" id="edit_category" name="category" required>
+                            {% for category in categories %}
+                            <option value="{{ category.name }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_unit" class="form-label">Unit</label>
+                        <input type="text" class="form-control" id="edit_unit" name="unit" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_reorder_level" class="form-label">Reorder Level</label>
+                        <input type="number" class="form-control" id="edit_reorder_level" name="reorder_level" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_cost_per_unit" class="form-label">Cost per Unit</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="edit_cost_per_unit" name="cost_per_unit" step="0.01" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Resource Modal -->
+<div class="modal fade" id="deleteResourceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Delete Resource</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <span id="deleteResourceName" class="fw-bold"></span>?</p>
+                <p class="text-danger">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteResourceForm" action="" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Update Modal -->
+<div class="modal fade" id="bulkUpdateModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Bulk Update Resources</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="bulkUpdateForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="updateShop" class="form-label">Select Shop</label>
+                        <select class="form-select" id="updateShop" required>
+                            {% for shop in shops %}
+                            <option value="{{ shop.id }}">{{ shop.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Resource</th>
+                                    <th>Current Quantity</th>
+                                    <th>New Quantity</th>
+                                    <th>Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bulkUpdateTable">
+                                {% for resource in resources %}
+                                <tr>
+                                    <td>{{ resource.name }}</td>
+                                    <td class="current-quantity" data-shop-id="{{ shops[0].id }}">
+                                        {{ shop_resources[shops[0].id][resource.id]|default(0) }} {{ resource.unit }}
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control new-quantity" 
+                                               name="quantities[{{ resource.id }}]" 
+                                               value="{{ shop_resources[shops[0].id][resource.id]|default(0) }}"
+                                               min="0">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" 
+                                               name="reasons[{{ resource.id }}]" 
+                                               placeholder="Reason for change">
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Resources</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block admin_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Select all functionality
+    const selectAll = document.getElementById('selectAll');
+    const resourceSelects = document.querySelectorAll('.resource-select');
+    
+    selectAll.addEventListener('change', function() {
+        resourceSelects.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+    });
+    
+    // Search functionality
+    const searchInput = document.getElementById('searchInput');
+    const searchButton = document.getElementById('searchButton');
+    const tableRows = document.querySelectorAll('tbody tr');
+    
+    function performSearch() {
+        const searchTerm = searchInput.value.toLowerCase();
+        tableRows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(searchTerm) ? '' : 'none';
+        });
+    }
+    
+    searchButton.addEventListener('click', performSearch);
+    searchInput.addEventListener('keyup', function(e) {
+        if (e.key === 'Enter') {
+            performSearch();
+        }
+    });
+    
+    // Category and status filtering
+    const categoryFilter = document.getElementById('categoryFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    
+    function applyFilters() {
+        const category = categoryFilter.value.toLowerCase();
+        const status = statusFilter.value;
+        
+        tableRows.forEach(row => {
+            const rowCategory = row.children[1].textContent.toLowerCase();
+            const rowStatus = row.querySelector('.badge').textContent.toLowerCase();
+            
+            const categoryMatch = !category || rowCategory.includes(category);
+            const statusMatch = !status || rowStatus.includes(status);
+            
+            row.style.display = categoryMatch && statusMatch ? '' : 'none';
+        });
+    }
+    
+    categoryFilter.addEventListener('change', applyFilters);
+    statusFilter.addEventListener('change', applyFilters);
+    
+    // Edit resource functionality
+    const editButtons = document.querySelectorAll('.edit-resource');
+    editButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const id = this.dataset.id;
+            const form = document.getElementById('editResourceForm');
+            form.action = `/resources/${id}/update`;
+            
+            document.getElementById('edit_name').value = this.dataset.name;
+            document.getElementById('edit_category').value = this.dataset.category;
+            document.getElementById('edit_unit').value = this.dataset.unit;
+            document.getElementById('edit_reorder_level').value = this.dataset.reorderLevel;
+            document.getElementById('edit_cost_per_unit').value = this.dataset.costPerUnit;
+        });
+    });
+    
+    // Delete resource functionality
+    const deleteButtons = document.querySelectorAll('.delete-resource');
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const id = this.dataset.id;
+            const name = this.dataset.name;
+            
+            document.getElementById('deleteResourceName').textContent = name;
+            document.getElementById('deleteResourceForm').action = `/resources/${id}/delete`;
+        });
+    });
+    
+    // Bulk update functionality
+    const updateShop = document.getElementById('updateShop');
+    const bulkUpdateTable = document.getElementById('bulkUpdateTable');
+    
+    updateShop.addEventListener('change', function() {
+        const shopId = this.value;
+        const currentQuantities = document.querySelectorAll('.current-quantity');
+        
+        currentQuantities.forEach(cell => {
+            cell.textContent = `${cell.dataset.quantities[shopId] || 0} ${cell.dataset.unit}`;
+        });
+    });
+    
+    const bulkUpdateForm = document.getElementById('bulkUpdateForm');
+    bulkUpdateForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const shopId = updateShop.value;
+        const updates = [];
+        
+        document.querySelectorAll('#bulkUpdateTable tr').forEach(row => {
+            const resourceId = row.querySelector('.new-quantity').name.match(/\[(\d+)\]/)[1];
+            const quantity = parseInt(row.querySelector('.new-quantity').value);
+            const reason = row.querySelector('input[name^="reasons"]').value;
+            
+            updates.push({
+                resource_id: resourceId,
+                quantity: quantity,
+                reason: reason
+            });
+        });
+        
+        try {
+            const response = await fetch('/resources/bulk-update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    shop_id: shopId,
+                    updates: updates
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                location.reload();
+            } else {
+                alert('Error updating resources: ' + result.message);
+            }
+        } catch (error) {
+            alert('Error updating resources: ' + error.message);
+        }
+    });
+});
+</script>
+{% endblock %} 

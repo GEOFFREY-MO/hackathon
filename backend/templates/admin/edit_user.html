@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}Edit User - SmartRetail AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-3 col-lg-2 d-md-block bg-light sidebar">
+            <div class="position-sticky pt-3">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.dashboard') }}">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.manage_shops') }}">
+                            <i class="fas fa-store"></i> Shops
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('admin.manage_users') }}">
+                            <i class="fas fa-users"></i> Users
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.sales_report') }}">
+                            <i class="fas fa-chart-line"></i> Sales Report
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">Edit User</h1>
+            </div>
+
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-body">
+                            <form method="POST" id="editUserForm">
+                                <div class="mb-3">
+                                    <label for="name" class="form-label">Full Name</label>
+                                    <input type="text" class="form-control" id="name" name="name" value="{{ user.name }}" required>
+                                    <div class="form-text">Enter the user's full name.</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="username" class="form-label">Username</label>
+                                    <input type="text" class="form-control" id="username" name="username" value="{{ user.username }}" readonly>
+                                    <div class="form-text">Username cannot be changed.</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="email" class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
+                                    <div class="form-text">Enter a valid email address.</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="role" class="form-label">Role</label>
+                                    <select class="form-select" id="role" name="role" required>
+                                        <option value="employee" {% if user.role == 'employee' %}selected{% endif %}>Employee</option>
+                                        <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+                                    </select>
+                                    <div class="form-text">Select the user's role in the system.</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="shop_id" class="form-label">Assigned Shop</label>
+                                    <select class="form-select" id="shop_id" name="shop_id">
+                                        <option value="">No Shop Assigned</option>
+                                        {% for shop in shops %}
+                                            <option value="{{ shop.id }}" {% if user.shop_id == shop.id %}selected{% endif %}>
+                                                {{ shop.name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">Select the shop this user will be assigned to.</div>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <a href="{{ url_for('admin.manage_users') }}" class="btn btn-secondary">Cancel</a>
+                                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('editUserForm');
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Validate required fields
+        const requiredFields = ['name', 'email', 'role'];
+        const missingFields = requiredFields.filter(field => !form[field].value.trim());
+        
+        if (missingFields.length > 0) {
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-danger alert-dismissible fade show';
+            alert.innerHTML = `
+                Please fill in all required fields: ${missingFields.join(', ')}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.querySelector('main').insertBefore(alert, document.querySelector('.card'));
+            return;
+        }
+        
+        // Show loading state
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        submitBtn.disabled = true;
+        
+        // Submit form data
+        fetch(window.location.href, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-success alert-dismissible fade show';
+                alert.innerHTML = `
+                    ${data.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.querySelector('main').insertBefore(alert, document.querySelector('.card'));
+                
+                // Redirect after success
+                setTimeout(() => {
+                    window.location.href = '{{ url_for("admin.manage_users") }}';
+                }, 1500);
+            } else {
+                throw new Error(data.message || 'Failed to update user');
+            }
+        })
+        .catch(error => {
+            // Show error message
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-danger alert-dismissible fade show';
+            alert.innerHTML = `
+                ${error.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.querySelector('main').insertBefore(alert, document.querySelector('.card'));
+            
+            // Reset button state
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        });
+    });
+});
+</script>
+{% endblock %}
+
+{% block styles %}
+<style>
+.sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    padding: 48px 0 0;
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+}
+
+.sidebar .nav-link {
+    font-weight: 500;
+    color: #333;
+    padding: 0.5rem 1rem;
+}
+
+.sidebar .nav-link.active {
+    color: #2470dc;
+}
+
+.sidebar .nav-link:hover {
+    color: #2470dc;
+}
+
+.sidebar .nav-link i {
+    margin-right: 0.5rem;
+}
+
+main {
+    padding-top: 1.5rem;
+}
+
+.card {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    margin-bottom: 1rem;
+}
+
+.form-label {
+    font-weight: 500;
+}
+
+.form-text {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.btn {
+    border-radius: 20px;
+    padding: 0.5rem 1.5rem;
+}
+
+/* Animation styles */
+.alert {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1050;
+    min-width: 300px;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.btn {
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+/* Loading spinner */
+.fa-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
+{% endblock %} 

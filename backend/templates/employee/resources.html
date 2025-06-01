@@ -1,0 +1,413 @@
+{% extends "employee/base.html" %}
+
+{% block title %}Resources - SmartRetail AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Main content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4" style="margin-left: 16.666667%;">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom" style="position: fixed; top: 2.5rem; right: 0; left: 16.666667%; background: linear-gradient(45deg, #4e73df, #224abe); z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 1rem;">
+                <h1 class="h2 text-white">Resources Management</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#updateResourceModal">
+                        <i class="fas fa-plus me-2"></i>Update Resource
+                    </button>
+                </div>
+            </div>
+
+            <div style="margin-top: 6rem;">
+                <!-- Resource Overview Cards -->
+                <div class="row mb-4">
+                    <div class="col-xl-3 col-md-6 mb-4">
+                        <div class="card border-left-primary shadow h-100 py-2">
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col mr-2">
+                                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                            Total Resources</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ resources|length }}</div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="fas fa-boxes fa-2x text-gray-300"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-xl-3 col-md-6 mb-4">
+                        <div class="card border-left-warning shadow h-100 py-2">
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col mr-2">
+                                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                            Low Stock Items</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ low_stock_resources|length }}</div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-xl-3 col-md-6 mb-4">
+                        <div class="card border-left-success shadow h-100 py-2">
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col mr-2">
+                                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                            In Stock Items</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                            {{ resources|length - low_stock_resources|length }}
+                                        </div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-xl-3 col-md-6 mb-4">
+                        <div class="card border-left-danger shadow h-100 py-2">
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col mr-2">
+                                        <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                            Out of Stock Items</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                            {{ low_stock_resources|length }}
+                                        </div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="fas fa-times-circle fa-2x text-gray-300"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resources Table -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header py-3 bg-gradient-primary text-white d-flex justify-content-between align-items-center">
+                        <h6 class="m-0 font-weight-bold">Available Resources</h6>
+                        <div>
+                            <button class="btn btn-light btn-sm me-2" onclick="exportResources()">
+                                <i class="fas fa-download"></i> Export
+                            </button>
+                            <button class="btn btn-light btn-sm" onclick="refreshResources()">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="resourcesTable">
+                                <thead>
+                                    <tr>
+                                        <th>Resource Name</th>
+                                        <th>Category</th>
+                                        <th>Current Quantity</th>
+                                        <th>Unit</th>
+                                        <th>Last Updated</th>
+                                        <th>Updated By</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for resource in resources %}
+                                    <tr>
+                                        <td>{{ resource.name }}</td>
+                                        <td>{{ resource.category }}</td>
+                                        <td>{{ shop_resources[resource.id].quantity if resource.id in shop_resources else 0 }}</td>
+                                        <td>{{ resource.unit }}</td>
+                                        <td>{{ shop_resources[resource.id].last_updated.strftime('%Y-%m-%d %H:%M') if resource.id in shop_resources and shop_resources[resource.id].last_updated else 'Never' }}</td>
+                                        <td>{{ shop_resources[resource.id].updater.name if resource.id in shop_resources and shop_resources[resource.id].updater else 'N/A' }}</td>
+                                        <td>
+                                            {% if resource.id in shop_resources %}
+                                                {% if shop_resources[resource.id].quantity <= resource.reorder_level %}
+                                                    <span class="badge bg-warning">Low Stock</span>
+                                                {% elif shop_resources[resource.id].quantity == 0 %}
+                                                    <span class="badge bg-danger">Out of Stock</span>
+                                                {% else %}
+                                                    <span class="badge bg-success">In Stock</span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="badge bg-secondary">Not Set</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group">
+                                                <button class="btn btn-sm btn-primary update-resource" 
+                                                        data-resource-id="{{ resource.id }}" 
+                                                        data-resource-name="{{ resource.name }}" 
+                                                        data-current-quantity="{{ shop_resources[resource.id].quantity if resource.id in shop_resources else 0 }}">
+                                                    <i class="fas fa-edit"></i> Edit
+                                                </button>
+                                                <button class="btn btn-sm btn-info view-history" 
+                                                        data-resource-id="{{ resource.id }}" 
+                                                        data-resource-name="{{ resource.name }}">
+                                                    <i class="fas fa-history"></i> History
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Update Resource Modal -->
+<div class="modal fade" id="updateResourceModal" tabindex="-1" aria-labelledby="updateResourceModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-gradient-primary text-white">
+                <h5 class="modal-title" id="updateResourceModalLabel">Update Resource</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="updateResourceForm">
+                    <input type="hidden" id="resourceId" name="resource_id">
+                    <div class="mb-3">
+                        <label for="resourceName" class="form-label">Resource Name</label>
+                        <input type="text" class="form-control" id="resourceName" name="name" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="quantity" class="form-label">New Quantity</label>
+                        <input type="number" class="form-control" id="quantity" name="quantity" min="0" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="updateReason" class="form-label">Reason for Update</label>
+                        <select class="form-select" id="updateReason" name="reason" required>
+                            <option value="">Select a reason...</option>
+                            <option value="restock">Restock</option>
+                            <option value="usage">Usage/Consumption</option>
+                            <option value="adjustment">Stock Adjustment</option>
+                            <option value="damage">Damage/Loss</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="otherReasonDiv" style="display: none;">
+                        <label for="otherReason" class="form-label">Specify Other Reason</label>
+                        <input type="text" class="form-control" id="otherReason" name="other_reason">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="updateResource()">
+                    <i class="fas fa-save me-2"></i>Update
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resource History Modal -->
+<div class="modal fade" id="resourceHistoryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Resource History</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table" id="historyTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Previous Quantity</th>
+                                <th>New Quantity</th>
+                                <th>Change</th>
+                                <th>Updated By</th>
+                                <th>Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+}
+
+.card {
+    border: none;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+}
+
+.card-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.table th {
+    font-weight: 600;
+    background-color: #f8f9fc;
+}
+
+.btn-group .btn {
+    margin-right: 0.25rem;
+}
+
+.badge {
+    padding: 0.5em 0.75em;
+    font-weight: 500;
+}
+
+.modal-header {
+    border-bottom: none;
+}
+
+.modal-footer {
+    border-top: none;
+}
+
+#resourcesTable_wrapper {
+    padding: 1rem 0;
+}
+
+.dataTables_filter {
+    margin-bottom: 1rem;
+}
+
+.dataTables_filter input {
+    border: 1px solid #d1d3e2;
+    border-radius: 0.35rem;
+    padding: 0.375rem 0.75rem;
+}
+
+.dataTables_length select {
+    border: 1px solid #d1d3e2;
+    border-radius: 0.35rem;
+    padding: 0.375rem 0.75rem;
+}
+</style>
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Initialize DataTable
+    $('#resourcesTable').DataTable({
+        "order": [[0, "asc"]],
+        "pageLength": 10,
+        "language": {
+            "search": "Search resources:"
+        }
+    });
+
+    // Handle update resource button click
+    $('.update-resource').click(function() {
+        var resourceId = $(this).data('resource-id');
+        var resourceName = $(this).data('resource-name');
+        var currentQuantity = $(this).data('current-quantity');
+        
+        $('#resourceId').val(resourceId);
+        $('#resourceName').val(resourceName);
+        $('#quantity').val(currentQuantity);
+        $('#updateResourceModal').modal('show');
+    });
+
+    // Handle view history button click
+    $('.view-history').click(function() {
+        var resourceId = $(this).data('resource-id');
+        var resourceName = $(this).data('resource-name');
+        
+        // Clear previous history
+        $('#historyTable tbody').empty();
+        
+        // Show loading state
+        $('#historyTable tbody').html('<tr><td colspan="6" class="text-center">Loading history...</td></tr>');
+        
+        // Fetch history data
+        $.get(`/employee/resources/${resourceId}/history`, function(response) {
+            if (response.success) {
+                var historyHtml = '';
+                response.history.forEach(function(record) {
+                    historyHtml += `
+                        <tr>
+                            <td>${record.date}</td>
+                            <td>${record.previous_quantity}</td>
+                            <td>${record.new_quantity}</td>
+                            <td>${record.change}</td>
+                            <td>${record.updated_by}</td>
+                            <td>${record.reason}</td>
+                        </tr>
+                    `;
+                });
+                $('#historyTable tbody').html(historyHtml);
+            } else {
+                $('#historyTable tbody').html('<tr><td colspan="6" class="text-center text-danger">Error loading history</td></tr>');
+            }
+        }).fail(function() {
+            $('#historyTable tbody').html('<tr><td colspan="6" class="text-center text-danger">Error loading history</td></tr>');
+        });
+        
+        $('#resourceHistoryModal').modal('show');
+    });
+
+    // Handle other reason input visibility
+    $('#updateReason').change(function() {
+        if ($(this).val() === 'other') {
+            $('#otherReasonDiv').show();
+        } else {
+            $('#otherReasonDiv').hide();
+        }
+    });
+});
+
+function updateResource() {
+    var formData = new FormData($('#updateResourceForm')[0]);
+    
+    $.ajax({
+        url: '/employee/resources/update',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.success) {
+                // Show success message
+                alert('Resource updated successfully');
+                // Reload the page to show updated data
+                location.reload();
+            } else {
+                alert('Error updating resource: ' + response.message);
+            }
+        },
+        error: function() {
+            alert('Error updating resource. Please try again.');
+        }
+    });
+}
+
+function exportResources() {
+    window.location.href = '/employee/resources/export';
+}
+
+function refreshResources() {
+    location.reload();
+}
+</script>
+{% endblock %}
+
+{% endblock %} 

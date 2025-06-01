@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Products - SmartRetail AI{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="fas fa-box"></i> Product Inventory</h2>
+        </div>
+        <div class="col-md-4">
+            <div class="input-group">
+                <input type="text" class="form-control" id="searchInput" placeholder="Search products...">
+                <button class="btn btn-outline-secondary" type="button">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card shadow">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Barcode</th>
+                                    <th>Category</th>
+                                    <th>Price Range</th>
+                                    <th>Quantity</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for product in products %}
+                                <tr>
+                                    <td>{{ product.name }}</td>
+                                    <td>{{ product.barcode }}</td>
+                                    <td>{{ product.category }}</td>
+                                    <td>KES {{ "%.2f"|format(product.marked_price) }}</td>
+                                    <td>
+                                        <span class="badge {% if inventory.get(product.id, 0) < 5 %}bg-danger{% else %}bg-success{% endif %}">
+                                            {{ inventory.get(product.id, 0) }}
+                                        </span>
+                                        <button type="button" 
+                                                class="btn btn-sm btn-outline-primary ms-2"
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#updateStockModal{{ product.id }}">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{{ url_for('product.edit_product', id=product.id) }}" 
+                                               class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            {% if current_user.role == 'admin' %}
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#deleteModal{{ product.id }}">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+
+                                        <!-- Update Stock Modal -->
+                                        <div class="modal fade" id="updateStockModal{{ product.id }}" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">Update Stock - {{ product.name }}</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <form action="{{ url_for('product.update_inventory', id=product.id) }}" method="POST">
+                                                        <div class="modal-body">
+                                                            <div class="mb-3">
+                                                                <label for="quantity" class="form-label">Current Stock: {{ inventory.get(product.id, 0) }}</label>
+                                                                <input type="number" class="form-control" id="quantity" name="quantity" 
+                                                                       min="0" value="{{ inventory.get(product.id, 0) }}" required>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Action</label>
+                                                                <div class="form-check">
+                                                                    <input class="form-check-input" type="radio" name="action" 
+                                                                           id="set{{ product.id }}" value="set" checked>
+                                                                    <label class="form-check-label" for="set{{ product.id }}">
+                                                                        Set to this value
+                                                                    </label>
+                                                                </div>
+                                                                <div class="form-check">
+                                                                    <input class="form-check-input" type="radio" name="action" 
+                                                                           id="adjust{{ product.id }}" value="adjust">
+                                                                    <label class="form-check-label" for="adjust{{ product.id }}">
+                                                                        Adjust by this amount
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                            <button type="submit" class="btn btn-primary">Update Stock</button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {% if current_user.role == 'admin' %}
+                                        <!-- Delete Modal -->
+                                        <div class="modal fade" id="deleteModal{{ product.id }}" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">Confirm Delete</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        Are you sure you want to delete "{{ product.name }}"?
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                        <form action="{{ url_for('product.delete_product', id=product.id) }}" method="POST" class="d-inline">
+                                                            <button type="submit" class="btn btn-danger">Delete</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('searchInput').addEventListener('keyup', function(e) {
+    if (e.key === 'Enter') {
+        const searchTerm = this.value.trim();
+        if (searchTerm) {
+            window.location.href = "{{ url_for('product.product_list') }}?search=" + encodeURIComponent(searchTerm);
+        }
+    }
+});
+</script>
+{% endblock %} 

@@ -1,0 +1,176 @@
+{% extends "employee/base.html" %}
+
+{% block title %}Add New Product - SmartRetail AI{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .sidebar {
+        background: linear-gradient(45deg, #4e73df, #224abe);
+    }
+    .nav-link {
+        color: #ffffff !important;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        background: linear-gradient(45deg, #4e73df, #224abe);
+        border-radius: 0.35rem;
+        margin: 0.5rem;
+    }
+    .nav-link:hover {
+        background: linear-gradient(45deg, #224abe, #4e73df);
+        transform: translateX(5px);
+    }
+    .nav-link.active {
+        background: linear-gradient(45deg, #224abe, #4e73df);
+        font-weight: 600;
+    }
+    .card {
+        border: none;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    }
+    .card-header {
+        background: rgba(255, 255, 255, 0.9);
+        color: #4e73df;
+        border-radius: 0.5rem 0.5rem 0 0;
+    }
+    .btn-primary {
+        background: linear-gradient(45deg, #4e73df, #224abe);
+        border: none;
+    }
+    .btn-primary:hover {
+        background: linear-gradient(45deg, #224abe, #4e73df);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-3 col-lg-2 d-md-block bg-gradient-primary sidebar" style="position: fixed; top: 3rem; left: 0; height: calc(100vh - 3rem); overflow-y: auto; z-index: 1001; background: linear-gradient(45deg, #4e73df, #224abe);">
+            <div class="position-sticky">
+                <div class="sidebar-header mb-4 px-3 pt-4" style="background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem;">
+                    <h5 class="text-white mb-0" style="font-weight: 600;">
+                        <i class="fas fa-user-shield me-2"></i>Employee Panel
+                    </h5>
+                </div>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.dashboard') }}">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.new_sale') }}">
+                            <i class="fas fa-cash-register"></i> New Sale
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.sales_list') }}">
+                            <i class="fas fa-history"></i> Sales History
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.product_list') }}">
+                            <i class="fas fa-box"></i> Products
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.services') }}">
+                            <i class="fas fa-tools"></i> Services
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.analytics') }}">
+                            <i class="fas fa-chart-line"></i> Analytics
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.resources') }}">
+                            <i class="fas fa-boxes"></i> Resources
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3" 
+                 style="position: fixed; top: 3rem; right: 0; left: 16.666667%; z-index: 1000; background: linear-gradient(45deg, #4e73df, #224abe); padding: 1rem 2rem; margin: 0; width: calc(100% - 16.666667%);">
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        <i class="fas fa-box fa-2x text-white"></i>
+                    </div>
+                    <div>
+                        <h1 class="h2 mb-0 text-white" style="font-weight: 600;">Add New Product</h1>
+                        <p class="text-white-50 mb-0">Create a new product in your inventory</p>
+                    </div>
+                </div>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <a href="{{ url_for('employee.product_list') }}" class="btn btn-light">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Products
+                    </a>
+                </div>
+            </div>
+
+            <!-- Add padding to account for fixed header -->
+            <div style="margin-top: 6rem;">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex justify-content-between align-items-center" style="background: rgba(255, 255, 255, 0.9);">
+                        <h6 class="m-0 font-weight-bold" style="color: #4e73df; font-size: 1.1rem;">Product Information</h6>
+                    </div>
+                <div class="card-body">
+                        <form method="POST" action="{{ url_for('employee.add_product') }}" enctype="multipart/form-data">
+                            <div class="row">
+                            <div class="col-md-6">
+                                    <div class="mb-3">
+                                <label for="name" class="form-label">Product Name</label>
+                                        <input type="text" class="form-control" id="name" name="name" value="{{ form.name }}" required>
+                            </div>
+                                    <div class="mb-3">
+                                <label for="barcode" class="form-label">Barcode</label>
+                                        <input type="text" class="form-control" id="barcode" name="barcode" value="{{ form.barcode }}" required>
+                            </div>
+                                    <div class="mb-3">
+                                <label for="category" class="form-label">Category</label>
+                                <select class="form-select" id="category" name="category" required>
+                                    <option value="">Select Category</option>
+                                            <option value="Electronics" {% if form.category == 'Electronics' %}selected{% endif %}>Electronics</option>
+                                            <option value="Clothing" {% if form.category == 'Clothing' %}selected{% endif %}>Clothing</option>
+                                            <option value="Food" {% if form.category == 'Food' %}selected{% endif %}>Food</option>
+                                            <option value="Beverages" {% if form.category == 'Beverages' %}selected{% endif %}>Beverages</option>
+                                            <option value="Household" {% if form.category == 'Household' %}selected{% endif %}>Household</option>
+                                            <option value="Other" {% if form.category == 'Other' %}selected{% endif %}>Other</option>
+                                </select>
+                                    </div>
+                            </div>
+                            <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="marked_price" class="form-label">Price (KES)</label>
+                                        <input type="number" class="form-control" id="marked_price" name="marked_price" step="0.01" min="0" value="{{ form.marked_price }}" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="quantity" class="form-label">Quantity</label>
+                                        <input type="number" class="form-control" id="quantity" name="quantity" min="1" value="{{ form.quantity }}" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="image" class="form-label">Product Image</label>
+                                        <input type="file" class="form-control" id="image" name="image" accept="image/*">
+                            </div>
+                        </div>
+                            </div>
+                            <div class="text-end mt-4">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>Save Product
+                                </button>
+                            </div>
+                        </form>
+                        </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %} 

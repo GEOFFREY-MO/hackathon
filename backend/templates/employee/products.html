@@ -1,0 +1,374 @@
+{% extends "employee/base.html" %}
+
+{% block title %}Products - SmartRetail AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-3 col-lg-2 d-md-block bg-gradient-primary sidebar" style="position: fixed; top: 3rem; left: 0; height: calc(100vh - 3rem); overflow-y: auto; z-index: 1001; background: linear-gradient(45deg, #4e73df, #224abe);">
+            <div class="position-sticky">
+                <div class="sidebar-header mb-4 px-3 pt-4" style="background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem;">
+                    <h5 class="text-white mb-0" style="font-weight: 600;">
+                        <i class="fas fa-user-shield me-2"></i>Employee Panel
+                    </h5>
+                </div>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.dashboard') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.product_list') }}" style="font-weight: 600; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-box"></i> Products
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.new_sale') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-cash-register"></i> New Sale
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('employee.sales_list') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-history"></i> Sales History
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4" style="margin-left: 16.666667%;">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom" style="position: fixed; top: 2.5rem; right: 0; left: 16.666667%; background: linear-gradient(45deg, #4e73df, #224abe); z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 1rem;">
+                <h1 class="h2 text-white">Products</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <a href="{{ url_for('employee.add_product') }}" class="btn btn-light">
+                        <i class="fas fa-plus"></i> Add Product
+                    </a>
+                </div>
+            </div>
+
+            <div style="margin-top: 6rem;">
+            <!-- Search and Filter -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="searchInput" placeholder="Search products...">
+                        <button class="btn btn-outline-secondary" type="button">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <select class="form-select" id="categoryFilter">
+                        <option value="">All Categories</option>
+                        <option value="electronics">Electronics</option>
+                        <option value="clothing">Clothing</option>
+                        <option value="food">Food</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Products Table -->
+                <div class="card shadow-sm">
+                    <div class="card-header py-3 bg-gradient-primary text-white">
+                        <h6 class="m-0 font-weight-bold">Product List</h6>
+                    </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Product Name</th>
+                                    <th>Barcode</th>
+                                    <th>Category</th>
+                                    <th>Marked Price (KES)</th>
+                                    <th>Current Stock</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in inventory_items %}
+                                <tr>
+                                    <td>{{ item.product.name }}</td>
+                                    <td>{{ item.product.barcode }}</td>
+                                    <td>{{ item.product.category }}</td>
+                                    <td>{{ "%.2f"|format(item.product.marked_price) if item.product.marked_price is not none else "0.00" }}</td>
+                                    <td>
+                                        <span class="badge {% if item.quantity < 10 %}bg-danger{% else %}bg-success{% endif %}">
+                                            {{ item.quantity }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-outline-primary"
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#updateStockModal{{ item.product.id }}">
+                                                <i class="fas fa-edit"></i> Update Stock
+                                            </button>
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-outline-success"
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#sellProductModal{{ item.product.id }}">
+                                                <i class="fas fa-shopping-cart"></i> Sell
+                                            </button>
+                                        </div>
+
+                                        <!-- Update Stock Modal -->
+                                        <div class="modal fade" id="updateStockModal{{ item.product.id }}" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                        <div class="modal-header bg-gradient-primary text-white">
+                                                        <h5 class="modal-title">Update Stock - {{ item.product.name }}</h5>
+                                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <form action="{{ url_for('employee.update_stock', id=item.product.id) }}" method="POST">
+                                                        <div class="modal-body">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Current Stock: {{ item.quantity }}</label>
+                                                                <input type="number" class="form-control" name="quantity" 
+                                                                       min="0" value="{{ item.quantity }}" required>
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                            <button type="submit" class="btn btn-primary">Update Stock</button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Sell Product Modal -->
+                                        <div class="modal fade" id="sellProductModal{{ item.product.id }}" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                        <div class="modal-header bg-gradient-primary text-white">
+                                                        <h5 class="modal-title">Sell Product - {{ item.product.name }}</h5>
+                                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <form action="{{ url_for('employee.new_sale') }}" method="POST">
+                                                        <div class="modal-body">
+                                                            <input type="hidden" name="product_id" value="{{ item.product.id }}">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Quantity</label>
+                                                                <input type="number" class="form-control" name="quantity" 
+                                                                       min="1" max="{{ item.quantity }}" required>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Selling Price (KES)</label>
+                                                                <input type="number" class="form-control" name="price" 
+                                                                       step="0.01" value="{{ item.product.marked_price if item.product.marked_price is not none else 0 }}" required>
+                                                                <small class="text-muted">Marked Price: KES {{ "%.2f"|format(item.product.marked_price) if item.product.marked_price is not none else "0.00" }}</small>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Customer Name</label>
+                                                                <input type="text" class="form-control" name="customer_name">
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Payment Method</label>
+                                                                <select class="form-select" name="payment_method" required>
+                                                                    <option value="cash">Cash</option>
+                                                                    <option value="till">Till</option>
+                                                                    <option value="bank">Bank</option>
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                            <button type="submit" class="btn btn-primary">Record Sale</button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+}
+
+.card {
+    border: none;
+    border-radius: 0.35rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    border-bottom: none;
+}
+
+.form-label {
+    font-weight: 500;
+    color: #5a5c69;
+}
+
+.sidebar {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+}
+
+.sidebar-header {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    border-radius: 0.35rem;
+    margin: 0.5rem;
+    padding: 1rem;
+}
+
+.sidebar-header h5 {
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    margin: 0;
+}
+
+.sidebar .nav-link {
+    padding: 0.8rem 1rem;
+    border-radius: 0.35rem;
+    margin: 0.5rem;
+    color: #ffffff;
+    font-weight: 500;
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    transition: all 0.3s ease;
+}
+
+.sidebar .nav-link:hover {
+    background: linear-gradient(45deg, #224abe, #4e73df);
+    transform: translateX(5px);
+    color: #ffffff;
+}
+
+.sidebar .nav-link.active {
+    background: linear-gradient(45deg, #224abe, #4e73df);
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.sidebar .nav-link i {
+    width: 1.5rem;
+    text-align: center;
+    margin-right: 0.5rem;
+    color: #ffffff;
+}
+
+/* Scrollbar Styling */
+.sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.btn {
+    border-radius: 0.35rem;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+.alert {
+    border-radius: 0.35rem;
+    padding: 0.75rem 1rem;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+/* Enhanced badge styles */
+.badge {
+    font-weight: 500;
+    padding: 0.5em 0.75em;
+    border-radius: 30px;
+    transition: none !important;
+}
+
+.badge.bg-danger {
+    background-color: #dc3545 !important;
+}
+
+.badge.bg-success {
+    background-color: #198754 !important;
+}
+
+/* Modal styles */
+.modal-header.bg-gradient-primary {
+    border-bottom: none;
+}
+
+.modal-header .btn-close-white {
+    filter: brightness(0) invert(1);
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #4e73df;
+    box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+}
+</style>
+
+{% block scripts %}
+<script>
+// Search functionality
+document.getElementById('searchInput').addEventListener('keyup', function() {
+    const searchText = this.value.toLowerCase();
+    const tableRows = document.querySelectorAll('tbody tr');
+    
+    tableRows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchText) ? '' : 'none';
+    });
+});
+
+// Category filter
+document.getElementById('categoryFilter').addEventListener('change', function() {
+    const category = this.value.toLowerCase();
+    const tableRows = document.querySelectorAll('tbody tr');
+    
+    tableRows.forEach(row => {
+        const productCategory = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
+        row.style.display = !category || productCategory === category ? '' : 'none';
+    });
+});
+</script>
+{% endblock %}
+
+{% endblock %} 

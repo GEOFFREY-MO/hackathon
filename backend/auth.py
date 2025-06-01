@@ -1,0 +1,214 @@
+# backend/auth.py
+
+from flask import Blueprint, render_template, redirect, request, url_for, flash, session
+from flask_login import login_user, logout_user, login_required, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
+import re
+from database.models import db, User, Shop
+
+auth_bp = Blueprint('auth', __name__)
+
+def is_valid_email(email):
+    """Validate email format"""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+# -------------------------------
+# ROLE SELECTION
+# -------------------------------
+@auth_bp.route('/select_role')
+def select_role():
+    return render_template('select_role.html')
+
+# -------------------------------
+# LOGIN
+# -------------------------------
+@auth_bp.route('/login')
+def login():
+    return render_template('select_role.html')
+
+@auth_bp.route('/admin_login', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        try:
+            email = request.form['email'].strip().lower()
+            password = request.form['password']
+            
+            # Validate inputs
+            if not email or not password:
+                flash('Email and password are required.', 'danger')
+                return redirect(url_for('auth.admin_login'))
+            
+            # Get user and verify role
+            user = User.query.filter_by(email=email).first()
+            if not user:
+                flash('Invalid email or password.', 'danger')
+                return redirect(url_for('auth.admin_login'))
+            
+            if user.role != 'admin':
+                flash('Access denied. Admin privileges required.', 'danger')
+                return redirect(url_for('auth.admin_login'))
+            
+            # Verify password
+            if not check_password_hash(user.password_hash, password):
+                flash('Invalid email or password.', 'danger')
+                return redirect(url_for('auth.admin_login'))
+            
+            # Login successful
+            login_user(user)
+            return redirect(url_for('admin.dashboard'))
+            
+        except Exception as e:
+            print(f"Login error: {str(e)}")  # Add logging
+            flash('An error occurred during login. Please try again.', 'danger')
+            return redirect(url_for('auth.admin_login'))
+
+    return render_template('admin_login.html')
+
+@auth_bp.route('/employee_login', methods=['GET', 'POST'])
+def employee_login():
+    if request.method == 'POST':
+        email = request.form['email'].strip().lower()
+        password = request.form['password']
+        user = User.query.filter_by(email=email, role='employee').first()
+
+        if user and check_password_hash(user.password_hash, password):
+            login_user(user)
+            return redirect(url_for('auth.shop_select'))
+        else:
+            flash('Invalid employee credentials.')
+            return redirect(url_for('auth.employee_login'))
+
+    return render_template('employee_login.html')
+
+# -------------------------------
+# REGISTER
+# -------------------------------
+@auth_bp.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        try:
+            name = request.form['name'].strip()
+            email = request.form['email'].strip().lower()
+            password = request.form['password']
+            confirm_password = request.form['confirm_password']
+            role = request.form['role']
+            shop_id = request.form.get('shop_id') if role == 'employee' else None
+
+            # Validate inputs
+            if not name or not email or not password:
+                flash('All fields are required.')
+                return redirect(url_for('auth.register'))
+
+            if not is_valid_email(email):
+                flash('Please enter a valid email address.')
+                return redirect(url_for('auth.register'))
+
+            if password != confirm_password:
+                flash('Passwords do not match.')
+                return redirect(url_for('auth.register'))
+
+            if len(password) < 8:
+                flash('Password must be at least 8 characters long.')
+                return redirect(url_for('auth.register'))
+
+            # Check if user already exists
+            if User.query.filter_by(email=email).first():
+                flash('This email is already registered.')
+                return redirect(url_for('auth.register'))
+
+            # Validate shop_id for employees
+            if role == 'employee' and not shop_id:
+                flash('Please select a shop for employee registration.')
+                return redirect(url_for('auth.register'))
+
+            # Create new user
+            new_user = User(
+                name=name,
+                email=email,
+                role=role,
+                shop_id=shop_id,
+                password_hash=generate_password_hash(password)
+            )
+
+            db.session.add(new_user)
+            db.session.commit()
+
+            flash('Registration successful! Please log in.')
+            return redirect(url_for('auth.select_role'))
+        except Exception as e:
+            db.session.rollback()
+            print(f"Registration error: {str(e)}")  # Add logging
+            flash('An error occurred during registration.')
+            return redirect(url_for('auth.register'))
+
+    try:
+        # Load shop list for the dropdown
+        shops = Shop.query.order_by(Shop.name).all()
+        if not shops:
+            # If no shops exist, create a default shop
+            default_shop = Shop(
+                name="Main Store",
+                location="123 Main Street, City Center"
+            )
+            db.session.add(default_shop)
+            db.session.commit()
+            shops = [default_shop]
+        
+        return render_template('register.html', shops=shops)
+    except Exception as e:
+        print(f"Error loading registration page: {str(e)}")  # Add logging
+        flash('An error occurred while loading registration page.')
+        return redirect(url_for('auth.select_role'))
+
+# -------------------------------
+# LOGOUT
+# -------------------------------
+@auth_bp.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    session.clear()  # Clear active shop and other session variables
+    return redirect(url_for('auth.login'))
+
+# -------------------------------
+# SHOP SELECTION (EMPLOYEE ONLY)
+# -------------------------------
+@auth_bp.route('/shop_select', methods=['GET', 'POST'])
+@login_required
+def shop_select():
+    if current_user.role != 'employee':
+        # Redirect admins back to their dashboard
+        return redirect(url_for('admin.admin_dashboard'))
+
+    try:
+        # Check if user has a shop assigned
+        if not current_user.shop_id:
+            flash("No shop has been assigned to your account. Please contact an administrator.")
+            return redirect(url_for('auth.logout'))
+
+        # Get the shop
+        employee_shop = Shop.query.get(current_user.shop_id)
+        if not employee_shop:
+            flash("Your assigned shop could not be found. Please contact an administrator.")
+            return redirect(url_for('auth.logout'))
+
+        if request.method == 'POST':
+            selected_shop = request.form.get('shop_id')
+            
+            # Security: ensure they only select their assigned shop
+            if not selected_shop or str(employee_shop.id) != selected_shop:
+                flash("Invalid shop selection.")
+                return redirect(url_for('auth.shop_select'))
+
+            # Store the shop in session
+            session['active_shop'] = selected_shop
+            return redirect(url_for('employee.dashboard'))
+
+        # For GET request, show the shop selection page
+        return render_template('shop_select.html', shop=employee_shop)
+
+    except Exception as e:
+        print(f"Error in shop_select: {str(e)}")
+        flash(f'An error occurred while selecting shop: {str(e)}')
+        return redirect(url_for('auth.select_role'))

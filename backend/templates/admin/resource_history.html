@@ -1,0 +1,121 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Resource History - SmartRetail AI{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">Resource History</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('admin.manage_resources') }}">Resources</a></li>
+        <li class="breadcrumb-item active">History</li>
+    </ol>
+
+    <div class="card mb-4">
+        <div class="card-header" style="background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%); color: white;">
+            <i class="fas fa-history me-1"></i>
+            History for {{ resource.name }}
+        </div>
+        <div class="card-body" style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="card shadow-sm">
+                        <div class="card-header" style="background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%); color: white;">
+                            <h5 class="card-title mb-0">Resource Details</h5>
+                        </div>
+                        <div class="card-body">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-4">Category</dt>
+                                <dd class="col-sm-8">{{ resource.category }}</dd>
+                                
+                                <dt class="col-sm-4">Unit</dt>
+                                <dd class="col-sm-8">{{ resource.unit }}</dd>
+                                
+                                <dt class="col-sm-4">Reorder Level</dt>
+                                <dd class="col-sm-8">{{ resource.reorder_level }}</dd>
+                                
+                                <dt class="col-sm-4">Cost per Unit</dt>
+                                <dd class="col-sm-8">${{ "%.2f"|format(resource.cost_per_unit) }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card shadow-sm">
+                        <div class="card-header" style="background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%); color: white;">
+                            <h5 class="card-title mb-0">Current Status</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% for shop in shops %}
+                                <div class="col-sm-6 mb-2">
+                                    <div class="d-flex justify-content-between">
+                                        <span>{{ shop.name }}:</span>
+                                        <span class="fw-bold">{{ shop_resources[shop.id][resource.id]|default(0) }} {{ resource.unit }}</span>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header" style="background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%); color: white;">
+                    <h5 class="card-title mb-0">History Records</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Shop</th>
+                                    <th>Previous Quantity</th>
+                                    <th>New Quantity</th>
+                                    <th>Change</th>
+                                    <th>Type</th>
+                                    <th>Reason</th>
+                                    <th>Updated By</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in history %}
+                                <tr>
+                                    <td>{{ entry.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>{{ entry.shop.name }}</td>
+                                    <td>{{ entry.previous_quantity }} {{ resource.unit }}</td>
+                                    <td>{{ entry.new_quantity }} {{ resource.unit }}</td>
+                                    <td>
+                                        {% set change = entry.new_quantity - entry.previous_quantity %}
+                                        <span class="{% if change > 0 %}text-success{% elif change < 0 %}text-danger{% endif %}">
+                                            {{ "+" if change > 0 }}{{ change }} {{ resource.unit }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if entry.change_type == 'add' %}bg-success{% elif entry.change_type == 'remove' %}bg-danger{% else %}bg-info{% endif %}">
+                                            {{ entry.change_type|title }}
+                                        </span>
+                                    </td>
+                                    <td>{{ entry.reason or 'No reason provided' }}</td>
+                                    <td>{{ entry.updater.name if entry.updater else 'System' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block admin_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add any JavaScript functionality here
+});
+</script>
+{% endblock %} 

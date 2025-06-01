@@ -1,0 +1,556 @@
+{% extends "base.html" %}
+
+{% block title %}Sales Report - SmartRetail AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-3 col-lg-2 d-md-block bg-gradient-primary sidebar" style="position: fixed; top: 3rem; left: 0; height: calc(100vh - 3rem); overflow-y: auto; z-index: 1001;">
+            <div class="position-sticky">
+                <div class="sidebar-header mb-4 px-3 pt-4">
+                    <h5 class="text-white mb-0" style="font-weight: 600;">
+                        <i class="fas fa-user-shield me-2"></i>Admin Panel
+                    </h5>
+                </div>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="{{ url_for('admin.dashboard') }}" style="opacity: 0.9; font-weight: 500; transition: all 0.3s ease;">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="{{ url_for('admin.manage_shops') }}" style="opacity: 0.9; font-weight: 500; transition: all 0.3s ease;">
+                            <i class="fas fa-store"></i> Shops
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="{{ url_for('admin.manage_users') }}" style="opacity: 0.9; font-weight: 500; transition: all 0.3s ease;">
+                            <i class="fas fa-users"></i> Users
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active text-white" href="{{ url_for('admin.sales_report') }}" style="opacity: 1; font-weight: 600; transition: all 0.3s ease;">
+                            <i class="fas fa-chart-line"></i> Sales Report
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4" style="margin-left: 16.666667%;">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom" style="position: fixed; top: 2.5rem; right: 0; left: 16.666667%; background: linear-gradient(45deg, #4e73df, #224abe); z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 1rem;">
+                <h1 class="h2 text-white">Sales Report</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <a href="{{ url_for('admin.download_sales_report', 
+                        start_date=request.args.get('start_date', ''),
+                        end_date=request.args.get('end_date', ''),
+                        shop_id=request.args.get('shop_id', ''),
+                        sort_by=request.args.get('sort', 'date_desc'),
+                        period=request.args.get('period', 'today')) }}" 
+                        class="btn btn-sm btn-light" id="downloadBtn">
+                        <i class="fas fa-file-download"></i> Download Report
+                    </a>
+                </div>
+            </div>
+            <div style="margin-top: 6rem;">
+            <!-- Filters -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header py-3 bg-gradient-primary text-white">
+                    <h6 class="m-0 font-weight-bold">Filters</h6>
+                </div>
+                <div class="card-body">
+                    <form id="filterForm" class="row g-3">
+                        <!-- Date Range -->
+                        <div class="col-md-4">
+                            <label class="form-label">Date Range</label>
+                            <div class="input-group">
+                                <input type="date" class="form-control" id="startDate" name="start_date" 
+                                       value="{{ request.args.get('start_date', '') }}">
+                                <span class="input-group-text">to</span>
+                                <input type="date" class="form-control" id="endDate" name="end_date"
+                                       value="{{ request.args.get('end_date', '') }}">
+                            </div>
+                        </div>
+
+                        <!-- Period Filter -->
+                        <div class="col-md-2">
+                            <label class="form-label">Period</label>
+                            <select class="form-select" id="period" name="period">
+                                <option value="today" {% if period == 'today' %}selected{% endif %}>Today</option>
+                                <option value="week" {% if period == 'week' %}selected{% endif %}>Last 7 Days</option>
+                                <option value="month" {% if period == 'month' %}selected{% endif %}>Last 30 Days</option>
+                                <option value="year" {% if period == 'year' %}selected{% endif %}>This Year</option>
+                            </select>
+                        </div>
+
+                        <!-- Shop Filter -->
+                        <div class="col-md-3">
+                            <label class="form-label">Shop</label>
+                            <select class="form-select" id="shopFilter" name="shop_id">
+                                <option value="">All Shops</option>
+                                {% for shop in shops %}
+                                <option value="{{ shop.id }}" {% if selected_shop_id == shop.id %}selected{% endif %}>
+                                    {{ shop.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Sort Order -->
+                        <div class="col-md-3">
+                            <label class="form-label">Sort By</label>
+                            <select class="form-select" id="sortOrder" name="sort">
+                                <option value="date_desc">Date (Newest First)</option>
+                                <option value="date_asc">Date (Oldest First)</option>
+                                <option value="amount_desc">Amount (High to Low)</option>
+                                <option value="amount_asc">Amount (Low to High)</option>
+                            </select>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-filter me-2"></i>Apply Filters
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="resetFilters()">
+                                <i class="fas fa-undo me-2"></i>Reset
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="row mb-4">
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-0 shadow-sm h-100 bg-gradient-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-white-50 mb-2">Total Sales</h6>
+                                    <h3 class="mb-0 fw-bold text-white">KES {{ "%.2f"|format(total_sales) }}</h3>
+                                    <small class="text-white-75">
+                                        <i class="fas fa-chart-line me-1"></i> Sales Overview
+                                    </small>
+                                </div>
+                                <div class="bg-white bg-opacity-25 p-3 rounded-circle">
+                                    <i class="fas fa-dollar-sign fa-2x text-white"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-0 shadow-sm h-100 bg-gradient-info text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-white-50 mb-2">Total Orders</h6>
+                                    <h3 class="mb-0 fw-bold text-white">{{ total_transactions }}</h3>
+                                    <small class="text-white-75">
+                                        <i class="fas fa-shopping-cart me-1"></i> Transactions
+                                    </small>
+                                </div>
+                                <div class="bg-white bg-opacity-25 p-3 rounded-circle">
+                                    <i class="fas fa-shopping-cart fa-2x text-white"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-0 shadow-sm h-100 bg-gradient-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-white-50 mb-2">Average Order Value</h6>
+                                    <h3 class="mb-0 fw-bold text-white">KES {{ "%.2f"|format(average_sale) }}</h3>
+                                    <small class="text-white-75">
+                                        <i class="fas fa-chart-bar me-1"></i> Per Transaction
+                                    </small>
+                                </div>
+                                <div class="bg-white bg-opacity-25 p-3 rounded-circle">
+                                    <i class="fas fa-chart-line fa-2x text-white"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-0 shadow-sm h-100 bg-gradient-warning text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-white-50 mb-2">Total Items Sold</h6>
+                                    <h3 class="mb-0 fw-bold text-white">{{ total_items }}</h3>
+                                    <small class="text-white-75">
+                                        <i class="fas fa-box me-1"></i> Products Sold
+                                    </small>
+                                </div>
+                                <div class="bg-white bg-opacity-25 p-3 rounded-circle">
+                                    <i class="fas fa-box fa-2x text-white"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sales Table -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header py-3 bg-gradient-info text-white d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold">Sales Details</h6>
+                    <div class="input-group" style="width: 300px;">
+                        <input type="text" class="form-control" id="searchInput" placeholder="Search sales...">
+                        <button class="btn btn-light" type="button" id="searchButton">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="salesTable" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Shop</th>
+                                    <th>Product</th>
+                                    <th>Quantity</th>
+                                    <th>Price</th>
+                                    <th>Total</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sale in sales %}
+                                <tr>
+                                    <td>{{ sale.sale_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>{{ sale.shop.name }}</td>
+                                    <td>{{ sale.product.name }}</td>
+                                    <td>{{ sale.quantity }}</td>
+                                    <td>KES {{ "%.2f"|format(sale.price) }}</td>
+                                    <td>KES {{ "%.2f"|format(sale.quantity * sale.price) }}</td>
+                                    <td><button type="button" class="btn btn-sm btn-info" onclick="viewSaleDetails({{ sale.id }})"><i class="fas fa-eye"></i></button></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Sale Details Modal -->
+<div class="modal fade" id="saleDetailsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Sale Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="saleDetailsContent">
+                <!-- Content will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+}
+
+.bg-gradient-info {
+    background: linear-gradient(45deg, #36b9cc, #258391);
+}
+
+.bg-gradient-success {
+    background: linear-gradient(45deg, #1cc88a, #13855c);
+}
+
+.bg-gradient-warning {
+    background: linear-gradient(45deg, #f6c23e, #dda20a);
+}
+
+.card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.rounded-circle {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.text-white-50 {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.text-white-75 {
+    color: rgba(255, 255, 255, 0.75) !important;
+}
+
+.bg-opacity-25 {
+    opacity: 0.25;
+}
+
+.card-header {
+    border-bottom: none;
+}
+
+.card-header .input-group-text {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+.card-header .form-control {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+.card-header .form-control::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.card-header .form-control:focus {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: white;
+    box-shadow: none;
+}
+
+.card-header .input-group .btn {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    transition: all 0.2s ease;
+}
+
+.card-header .input-group .btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.card-header .input-group .btn:focus {
+    box-shadow: none;
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.sidebar .nav-link {
+    padding: 0.8rem 1rem;
+    border-radius: 0.25rem;
+    margin: 0.2rem 0.5rem;
+}
+.sidebar .nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: translateX(5px);
+}
+.sidebar .nav-link.active {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+.sidebar .nav-link i {
+    width: 1.5rem;
+    text-align: center;
+    margin-right: 0.5rem;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize date range picker
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+    
+    if (startDateInput && endDateInput) {
+        flatpickr(startDateInput, {
+            dateFormat: "Y-m-d",
+            maxDate: "today",
+            onChange: function(selectedDates, dateStr) {
+                endDateInput._flatpickr.set("minDate", dateStr);
+            }
+        });
+        
+        flatpickr(endDateInput, {
+            dateFormat: "Y-m-d",
+            maxDate: "today",
+            onChange: function(selectedDates, dateStr) {
+                startDateInput._flatpickr.set("maxDate", dateStr);
+            }
+        });
+    }
+    
+    // Handle period selection
+    const periodSelect = document.getElementById('period');
+    if (periodSelect) {
+        periodSelect.addEventListener('change', function() {
+            const today = new Date();
+    let startDate = new Date();
+    
+            switch(this.value) {
+        case 'today':
+                    startDate = today;
+                    break;
+                case 'yesterday':
+                    startDate.setDate(today.getDate() - 1);
+            break;
+                case 'this_week':
+                    startDate.setDate(today.getDate() - 7);
+            break;
+                case 'this_month':
+                    startDate.setMonth(today.getMonth() - 1);
+            break;
+                case 'this_year':
+                    startDate.setFullYear(today.getFullYear() - 1);
+            break;
+    }
+    
+            if (startDateInput && endDateInput) {
+                startDateInput._flatpickr.setDate(startDate);
+                endDateInput._flatpickr.setDate(today);
+            }
+        });
+    }
+    
+    // Handle reset button click
+    const resetButton = document.querySelector('button[onclick="resetFilters()"]');
+    if (resetButton) {
+        resetButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+    // Reset form fields
+            const form = document.getElementById('filterForm');
+            form.reset();
+            
+            // Reset date range to today
+            const today = new Date();
+            if (startDateInput && endDateInput) {
+                startDateInput._flatpickr.setDate(today);
+                endDateInput._flatpickr.setDate(today);
+            }
+            
+            // Reset period to today
+            if (periodSelect) {
+                periodSelect.value = 'today';
+            }
+    
+    // Reset shop filter
+            const shopFilter = document.getElementById('shopFilter');
+            if (shopFilter) {
+                shopFilter.value = '';
+            }
+    
+    // Reset sort order
+            const sortOrder = document.getElementById('sortOrder');
+            if (sortOrder) {
+                sortOrder.value = 'date_desc';
+            }
+            
+            // Submit the form to refresh the data
+            form.submit();
+        });
+}
+
+// Handle download button click
+    const downloadBtn = document.getElementById('downloadBtn');
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', async function(e) {
+    e.preventDefault();
+    
+            try {
+    // Get current filter values
+                const formData = new FormData(document.getElementById('filterForm'));
+                const params = new URLSearchParams();
+                
+                // Add all filter parameters
+                for (const pair of formData.entries()) {
+                    const key = pair[0];
+                    const value = pair[1];
+                    if (value) {
+                        params.append(key, value);
+                    }
+                }
+                
+                // Add sort order
+                const sortBy = document.querySelector('select[name="sort_by"]')?.value || 'date_desc';
+                params.append('sort_by', sortBy);
+                
+                // Add date range if present
+                const startDate = document.getElementById('startDate')?.value;
+                const endDate = document.getElementById('endDate')?.value;
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    
+                // Show loading state
+                const button = this;
+                const originalText = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing Report...';
+                button.disabled = true;
+                
+                // Construct download URL with all parameters
+                const downloadUrl = `${button.href}?${params.toString()}`;
+                
+                // Add a small delay to show the loading state
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Create a hidden iframe for the download
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                document.body.appendChild(iframe);
+                
+                // Set up error handling
+                iframe.onload = function() {
+                    try {
+                        // Check if the response is an error
+                        const response = iframe.contentDocument.body.textContent;
+                        if (response.includes('error') || response.includes('Error')) {
+                            throw new Error('Error generating report');
+                        }
+                    } catch (error) {
+                        console.error('Download error:', error);
+                        alert('Error generating the report. Please try again.');
+                    } finally {
+                        // Clean up
+                        document.body.removeChild(iframe);
+                        button.innerHTML = originalText;
+                        button.disabled = false;
+                    }
+                };
+                
+                // Trigger download
+                iframe.src = downloadUrl;
+    
+    // Reset button state after a delay
+    setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+    }, 2000);
+                
+            } catch (error) {
+                console.error('Download error:', error);
+                alert('Error generating the report. Please try again.');
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }
+        });
+    }
+});
+</script>
+{% endblock %} 

@@ -1,0 +1,637 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - SmartRetail AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-3 col-lg-2 d-md-block bg-gradient-primary sidebar" style="position: fixed; top: 3rem; left: 0; height: calc(100vh - 3rem); overflow-y: auto; z-index: 1001; background: linear-gradient(45deg, #4e73df, #224abe);">
+            <div class="position-sticky">
+                <div class="sidebar-header mb-4 px-3 pt-4" style="background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem;">
+                    <h5 class="text-white mb-0" style="font-weight: 600;">
+                        <i class="fas fa-user-shield me-2"></i>Admin Panel
+                    </h5>
+                </div>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('admin.dashboard') }}" style="font-weight: 600; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.manage_shops') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-store"></i> Shops
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.manage_users') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-users"></i> Users
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.sales_report') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-chart-line"></i> Sales Report
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.analytics') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
+                            <i class="fas fa-chart-bar"></i> Analytics
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4" style="margin-left: 16.666667%;">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom" style="position: fixed; top: 2.5rem; right: 0; left: 16.666667%; background: linear-gradient(45deg, #4e73df, #224abe); z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 1rem;">
+                <h1 class="h2 text-white">Dashboard Overview</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group me-2">
+                        <a href="{{ url_for('admin.manage_users') }}" class="btn btn-light">
+                            <i class="fas fa-user-plus"></i> New User
+                        </a>
+                        <a href="{{ url_for('admin.manage_shops') }}" class="btn btn-light">
+                            <i class="fas fa-store"></i> New Shop
+                        </a>
+                        <a href="{{ url_for('admin.analytics') }}" class="btn btn-light">
+                            <i class="fas fa-chart-bar"></i> View Analytics
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 6rem;">
+                <!-- Statistics -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="card stat-card bg-gradient-primary text-white">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="card-title mb-1">Total Shops</h6>
+                                        <h2 class="card-text mb-0">{{ total_shops }}</h2>
+                                        <small class="text-white-50">Active Shops: {{ active_shops }}</small>
+                                    </div>
+                                    <div class="stat-icon">
+                                        <i class="fas fa-store fa-2x"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card stat-card bg-gradient-success text-white">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="card-title mb-1">Total Users</h6>
+                                        <h2 class="card-text mb-0">{{ total_users }}</h2>
+                                        <small class="text-white-50">Active Users: {{ active_users }}</small>
+                                    </div>
+                                    <div class="stat-icon">
+                                        <i class="fas fa-users fa-2x"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card stat-card bg-gradient-info text-white">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="card-title mb-1">Total Products</h6>
+                                        <h2 class="card-text mb-0">{{ total_products }}</h2>
+                                        <small class="text-white-50">Low Stock: {{ low_stock_count }}</small>
+                                    </div>
+                                    <div class="stat-icon">
+                                        <i class="fas fa-box fa-2x"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Analytics Overview -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">Quick Analytics Overview</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <!-- Sales Trend -->
+                                    <div class="col-md-6 col-lg-3 mb-4">
+                                        <div class="card h-100">
+                                            <div class="card-body">
+                                                <h6 class="card-title">Sales Trend</h6>
+                                                <div class="chart-container" style="height: 200px;">
+                                                    <canvas id="quickSalesTrend"></canvas>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Category Distribution -->
+                                    <div class="col-md-6 col-lg-3 mb-4">
+                                        <div class="card h-100">
+                                            <div class="card-body">
+                                                <h6 class="card-title">Top Category</h6>
+                                                <div class="chart-container" style="height: 200px;">
+                                                    <canvas id="quickCategoryDistribution"></canvas>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Hourly Distribution -->
+                                    <div class="col-md-6 col-lg-3 mb-4">
+                                        <div class="card h-100">
+                                            <div class="card-body">
+                                                <h6 class="card-title">Peak Hours</h6>
+                                                <div class="chart-container" style="height: 200px;">
+                                                    <canvas id="quickHourlyDistribution"></canvas>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Stock Levels -->
+                                    <div class="col-md-6 col-lg-3 mb-4">
+                                        <div class="card h-100">
+                                            <div class="card-body">
+                                                <h6 class="card-title">Stock Status</h6>
+                                                <div class="chart-container" style="height: 200px;">
+                                                    <canvas id="quickStockLevels"></canvas>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- View Full Analytics Button -->
+                <div class="row mb-4">
+                    <div class="col-12 text-center">
+                        <a href="{{ url_for('admin.analytics') }}" class="btn btn-primary">
+                            <i class="fas fa-chart-line me-2"></i>View Full Analytics
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Sales Overview -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card shadow-sm">
+                            <div class="card-header py-3 bg-gradient-info text-white">
+                                <h6 class="m-0 font-weight-bold">Sales Overview</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-6 mb-3">
+                                        <h6 class="text-muted mb-1">Total Sales</h6>
+                                        <h4 class="mb-0">KES {{ "%.2f"|format(total_sales) }}</h4>
+                                    </div>
+                                    <div class="col-6 mb-3">
+                                        <h6 class="text-muted mb-1">Total Items</h6>
+                                        <h4 class="mb-0">{{ total_items }}</h4>
+                                    </div>
+                                    <div class="col-6">
+                                        <h6 class="text-muted mb-1">Transactions</h6>
+                                        <h4 class="mb-0">{{ total_transactions }}</h4>
+                                    </div>
+                                    <div class="col-6">
+                                        <h6 class="text-muted mb-1">Average Sale</h6>
+                                        <h4 class="mb-0">KES {{ "%.2f"|format(average_sale) }}</h4>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card shadow-sm">
+                            <div class="card-header py-3 bg-gradient-success text-white">
+                                <h6 class="m-0 font-weight-bold">Recent Activity</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="activity-feed">
+                                    {% for sale in recent_sales[:5] %}
+                                    <div class="activity-item mb-3">
+                                        <div class="d-flex align-items-center">
+                                            <div class="activity-icon me-3">
+                                                <i class="fas fa-shopping-cart text-success"></i>
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-1">{{ sale.shop.name }}</h6>
+                                                <p class="mb-0 text-muted">
+                                                    Sold {{ sale.quantity }} items for KES {{ "%.2f"|format(sale.quantity * sale.price) }}
+                                                </p>
+                                                <small class="text-muted">{{ sale.sale_date.strftime('%Y-%m-%d %H:%M') }}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Shop Overview -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card shadow-sm">
+                            <div class="card-header py-3 bg-gradient-primary text-white">
+                                <h6 class="m-0 font-weight-bold">Shop Overview</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    {% for shop in shops %}
+                                    <div class="col-md-6 mb-4">
+                                        <div class="card h-100">
+                                            <div class="card-header d-flex justify-content-between align-items-center">
+                                                <h5 class="mb-0">{{ shop.name }}</h5>
+                                                <a href="{{ url_for('admin.manage_shops') }}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-edit"></i> Manage
+                                                </a>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="row mb-3">
+                                                    <div class="col-6">
+                                                        <p class="mb-1"><strong>Total Products:</strong></p>
+                                                        <h4>{{ shop.total_products }}</h4>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <p class="mb-1"><strong>Total Stock:</strong></p>
+                                                        <h4>{{ shop.total_quantity }}</h4>
+                                                    </div>
+                                                </div>
+                                                {% if shop.low_stock %}
+                                                <div class="alert alert-warning mb-0">
+                                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                                    {{ shop.low_stock|length }} items low in stock
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+}
+
+.bg-gradient-success {
+    background: linear-gradient(45deg, #1cc88a, #13855c);
+}
+
+.bg-gradient-info {
+    background: linear-gradient(45deg, #36b9cc, #258391);
+}
+
+.card {
+    border: none;
+    border-radius: 0.35rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    margin-bottom: 1.5rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 2rem 0 rgba(58, 59, 69, 0.2);
+}
+
+.card-header {
+    border-bottom: none;
+}
+
+.stat-card {
+    border: none;
+    border-radius: 0.35rem;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 2rem 0 rgba(58, 59, 69, 0.2);
+}
+
+.stat-icon {
+    opacity: 0.8;
+    transition: transform 0.2s ease;
+}
+
+.stat-card:hover .stat-icon {
+    transform: scale(1.1);
+}
+
+.activity-feed {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.activity-item {
+    padding: 0.5rem;
+    border-radius: 0.35rem;
+    transition: background-color 0.2s ease;
+}
+
+.activity-item:hover {
+    background-color: #f8f9fc;
+}
+
+.activity-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background-color: rgba(28, 200, 138, 0.1);
+}
+
+.btn {
+    border-radius: 0.35rem;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+.btn-light {
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+}
+
+.btn-light:hover {
+    background: #ffffff;
+}
+
+.btn-outline-primary {
+    border-color: #4e73df;
+    color: #4e73df;
+}
+
+.btn-outline-primary:hover {
+    background: #4e73df;
+    color: #ffffff;
+}
+
+.alert {
+    border: none;
+    border-radius: 0.35rem;
+}
+
+.alert-warning {
+    background-color: rgba(255, 193, 7, 0.1);
+    color: #856404;
+}
+
+.sidebar .nav-link {
+    padding: 0.8rem 1rem;
+    border-radius: 0.25rem;
+    margin: 0.2rem 0.5rem;
+}
+
+.sidebar .nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: translateX(5px);
+}
+
+.sidebar .nav-link.active {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.sidebar .nav-link i {
+    width: 1.5rem;
+    text-align: center;
+    margin-right: 0.5rem;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+</style>
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize quick analytics charts
+    initializeQuickAnalytics();
+    
+    // Update quick analytics every 5 minutes
+    setInterval(updateQuickAnalytics, 300000);
+});
+
+function initializeQuickAnalytics() {
+    // Quick Sales Trend Chart
+    const quickSalesTrendCtx = document.getElementById('quickSalesTrend').getContext('2d');
+    window.quickSalesTrendChart = new Chart(quickSalesTrendCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Sales',
+                data: [],
+                borderColor: '#4e73df',
+                tension: 0.4,
+                fill: true,
+                backgroundColor: 'rgba(78, 115, 223, 0.1)'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    display: false
+                },
+                y: {
+                    display: false
+                }
+            }
+        }
+    });
+
+    // Quick Category Distribution Chart
+    const quickCategoryCtx = document.getElementById('quickCategoryDistribution').getContext('2d');
+    window.quickCategoryChart = new Chart(quickCategoryCtx, {
+        type: 'doughnut',
+        data: {
+            labels: [],
+            datasets: [{
+                data: [],
+                backgroundColor: [
+                    '#4e73df',
+                    '#1cc88a',
+                    '#36b9cc',
+                    '#f6c23e',
+                    '#e74a3b'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            cutout: '70%'
+        }
+    });
+
+    // Quick Hourly Distribution Chart
+    const quickHourlyCtx = document.getElementById('quickHourlyDistribution').getContext('2d');
+    window.quickHourlyChart = new Chart(quickHourlyCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                data: [],
+                backgroundColor: '#4e73df'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    display: false
+                },
+                y: {
+                    display: false
+                }
+            }
+        }
+    });
+
+    // Quick Stock Levels Chart
+    const quickStockCtx = document.getElementById('quickStockLevels').getContext('2d');
+    window.quickStockChart = new Chart(quickStockCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Current Stock',
+                data: [],
+                backgroundColor: '#4e73df'
+            }, {
+                label: 'Reorder Level',
+                data: [],
+                backgroundColor: '#e74a3b',
+                type: 'line'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    display: false
+                },
+                y: {
+                    display: false
+                }
+            }
+        }
+    });
+
+    // Initial data load
+    updateQuickAnalytics();
+}
+
+function updateQuickAnalytics() {
+    // Fetch quick analytics data
+    fetch('/admin/analytics/data?period=week&quick=true')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to fetch analytics data');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Update Quick Sales Trend Chart
+            quickSalesTrendChart.data.labels = data.sales_trend.labels;
+            quickSalesTrendChart.data.datasets[0].data = data.sales_trend.data;
+            quickSalesTrendChart.update();
+
+            // Update Quick Category Distribution Chart
+            quickCategoryChart.data.labels = data.category_distribution.labels;
+            quickCategoryChart.data.datasets[0].data = data.category_distribution.data;
+            quickCategoryChart.update();
+
+            // Update Quick Hourly Distribution Chart
+            quickHourlyChart.data.labels = data.hourly_distribution.labels;
+            quickHourlyChart.data.datasets[0].data = data.hourly_distribution.data;
+            quickHourlyChart.update();
+
+            // Update Quick Stock Levels Chart
+            quickStockChart.data.labels = data.stock_levels.labels;
+            quickStockChart.data.datasets[0].data = data.stock_levels.current;
+            quickStockChart.data.datasets[1].data = data.stock_levels.reorder;
+            quickStockChart.update();
+        })
+        .catch(error => {
+            console.error('Error fetching quick analytics data:', error);
+        });
+}
+</script>
+{% endblock %}
+
+{% endblock %} 
