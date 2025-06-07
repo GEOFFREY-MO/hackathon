@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, flash, Response, redirect, url_for, request, jsonify, send_file, current_app
 from flask_login import login_required, current_user
-from backend.database.models import Shop, Product, Inventory, User, db, Sale, Service, ServiceSale, Resource, ShopResource, Expense, ResourceHistory, ResourceAlert, ResourceCategory
+from backend.database.models import Shop, Product, Inventory, User, db, Sale, Service, ServiceSale, Resource, ShopResource, Expense, ResourceHistory, ResourceAlert, ResourceCategory, ServiceCategory
 from io import StringIO
 import csv
 from datetime import datetime, timedelta
@@ -16,6 +16,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from functools import wraps
 from decimal import Decimal
 import json
+from sqlalchemy import func
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -82,9 +83,7 @@ def dashboard():
             logger.info(f"Found {stats['total_shops']} shops")
         except Exception as e:
             logger.error(f"Error getting shop statistics: {str(e)}")
-            flash(
-                'Error loading shop data. Some statistics may be incomplete.',
-                'warning')
+            flash('Error loading shop data. Some statistics may be incomplete.', 'warning')
             all_shops = []
 
         # Get user statistics with error handling
@@ -96,9 +95,7 @@ def dashboard():
             logger.info(f"Found {stats['total_users']} users")
         except Exception as e:
             logger.error(f"Error getting user statistics: {str(e)}")
-            flash(
-                'Error loading user data. Some statistics may be incomplete.',
-                'warning')
+            flash('Error loading user data. Some statistics may be incomplete.', 'warning')
 
         # Get product and inventory statistics with error handling
         try:
@@ -106,6 +103,22 @@ def dashboard():
             all_products = Product.query.all()
             stats['total_products'] = len(all_products)
             logger.info(f"Found {stats['total_products']} products")
+
+            # Get recent products with stock levels
+            recent_products = db.session.query(
+                Product,
+                func.sum(Inventory.quantity).label('total_stock')
+            ).join(Inventory).group_by(Product.id).order_by(
+                Product.created_at.desc()
+            ).limit(5).all()
+
+            # Get low stock products
+            low_stock_products = db.session.query(
+                Product,
+                func.sum(Inventory.quantity).label('total_stock')
+            ).join(Inventory).group_by(Product.id).having(
+                func.sum(Inventory.quantity) < 10
+            ).limit(5).all()
 
             # Get inventory items with optimized query
             logger.info("Fetching inventory data")
@@ -130,9 +143,27 @@ def dashboard():
 
         except Exception as e:
             logger.error(f"Error getting product statistics: {str(e)}")
-            flash(
-                'Error loading product data. Some statistics may be incomplete.',
-                'warning')
+            flash('Error loading product data. Some statistics may be incomplete.', 'warning')
+            recent_products = []
+            low_stock_products = []
+
+        # Get services data
+        try:
+            logger.info("Fetching services data")
+            active_services = Service.query.filter_by(status='active').limit(5).all()
+            
+            # Get service categories with counts
+            service_categories = db.session.query(
+                ServiceCategory,
+                func.count(Service.id).label('service_count')
+            ).join(Service).group_by(ServiceCategory.id).all()
+            
+            logger.info(f"Found {len(active_services)} active services")
+        except Exception as e:
+            logger.error(f"Error getting services data: {str(e)}")
+            flash('Error loading services data. Some statistics may be incomplete.', 'warning')
+            active_services = []
+            service_categories = []
 
         # Get sales data with period filtering
         try:
@@ -143,11 +174,8 @@ def dashboard():
             # Apply period filter
             end_date = datetime.utcnow()
             if period == 'today':
-                start_date = end_date.replace(
-                    hour=0, minute=0, second=0, microsecond=0)
-                query = query.filter(
-                    db.func.date(
-                        Sale.sale_date) == start_date.date())
+                start_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
+                query = query.filter(db.func.date(Sale.sale_date) == start_date.date())
             elif period == 'week':
                 start_date = end_date - timedelta(days=7)
                 query = query.filter(Sale.sale_date >= start_date)
@@ -155,8 +183,7 @@ def dashboard():
                 start_date = end_date - timedelta(days=30)
                 query = query.filter(Sale.sale_date >= start_date)
             elif period == 'year':
-                start_date = end_date.replace(
-                    month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+                start_date = end_date.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
                 query = query.filter(Sale.sale_date >= start_date)
 
             logger.info(f"Date range: {start_date} to {end_date}")
@@ -170,113 +197,32 @@ def dashboard():
             logger.info(f"Found {len(sales)} sales records")
 
             # Calculate statistics
-            stats['total_sales'] = sum(
-                sale.quantity * sale.price for sale in sales)
+            stats['total_sales'] = sum(sale.quantity * sale.price for sale in sales)
             stats['total_items'] = sum(sale.quantity for sale in sales)
             stats['total_transactions'] = len(sales)
-            stats['average_sale'] = stats['total_sales'] / \
-                stats['total_transactions'] if stats['total_transactions'] > 0 else 0
+            stats['average_sale'] = stats['total_sales'] / stats['total_transactions'] if stats['total_transactions'] > 0 else 0
 
             # Get recent sales with limit
-            recent_sales = query.order_by(
-                Sale.sale_date.desc()).limit(20).all()
+            recent_sales = query.order_by(Sale.sale_date.desc()).limit(20).all()
             logger.info(f"Found {len(recent_sales)} recent sales")
 
         except Exception as e:
             logger.error(f"Error getting sales data: {str(e)}")
-            flash(
-                'Error loading sales data. Some statistics may be incomplete.',
-                'warning')
+            flash('Error loading sales data. Some statistics may be incomplete.', 'warning')
 
-        # Get shop performance data with error handling
-        try:
-            logger.info("Fetching shop performance data")
-            for shop in all_shops:
-                try:
-                    logger.info(f"Processing shop: {shop.name}")
-                    # Get shop inventory with optimized query
-                    shop_inventory = (
-                        db.session.query(Inventory, Product)
-                        .join(Product, Inventory.product_id == Product.id)
-                        .filter(Inventory.shop_id == shop.id)
-                        .all()
-                    )
-
-                    # Get shop sales with period filter
-                    shop_sales = (
-                        db.session.query(Sale)
-                        .filter(Sale.shop_id == shop.id)
-                        .filter(Sale.sale_date >= start_date)
-                        .filter(Sale.sale_date <= end_date)
-                        .all()
-                    )
-
-                    # Calculate shop statistics
-                    shop_total_sales = sum(
-                        sale.quantity * sale.price for sale in shop_sales)
-                    shop_total_items = sum(
-                        sale.quantity for sale in shop_sales)
-                    shop_total_transactions = len(shop_sales)
-                    shop_average_sale = shop_total_sales / \
-                        shop_total_transactions if shop_total_transactions > 0 else 0
-
-                    # Calculate shop low stock items
-                    shop_low_stock_items = []
-                    shop_low_stock_count = 0
-                    for inv, product in shop_inventory:
-                        if inv.quantity < 5:
-                            shop_low_stock_items.append({
-                                'product_name': product.name,
-                                'quantity': inv.quantity
-                            })
-                            shop_low_stock_count += 1
-
-                    # Add shop data with all required fields
-                    shop_data = {
-                        'id': shop.id,
-                        'name': shop.name,
-                        'location': shop.location,
-                        'total_sales': shop_total_sales,
-                        'total_items': shop_total_items,
-                        'total_transactions': shop_total_transactions,
-                        'average_sale': shop_average_sale,
-                        'low_stock_items': shop_low_stock_items,
-                        'low_stock_count': shop_low_stock_count
-                    }
-                    shops.append(shop_data)
-                    logger.info(f"Successfully processed shop: {shop.name}")
-
-                except Exception as e:
-                    logger.error(f"Error processing shop {shop.id}: {str(e)}")
-                    continue
-
-        except Exception as e:
-            logger.error(f"Error getting shop performance data: {str(e)}")
-            flash(
-                'Error loading shop performance data. Some statistics may be incomplete.',
-                'warning')
-
-        logger.info("Successfully loaded all dashboard data")
-
-        # Render template with all data
         return render_template('admin/dashboard.html',
-                               total_sales=stats['total_sales'],
-                               total_items=stats['total_items'],
-                               total_transactions=stats['total_transactions'],
-                               average_sale=stats['average_sale'],
-                               shops=shops,
-                               recent_sales=recent_sales,
-                               total_shops=stats['total_shops'],
-                               active_shops=stats['active_shops'],
-                               total_users=stats['total_users'],
-                               active_users=stats['active_users'],
-                               total_products=stats['total_products'],
-                               low_stock_count=stats['low_stock_count'],
-                               period=period)
+                             stats=stats,
+                             recent_sales=recent_sales,
+                             low_stock_items=low_stock_items,
+                             recent_products=recent_products,
+                             low_stock_products=low_stock_products,
+                             active_services=active_services,
+                             service_categories=service_categories,
+                             period=period)
 
     except Exception as e:
-        logger.error(f"Critical error in dashboard: {str(e)}", exc_info=True)
-        flash('Error loading dashboard data. Please try again.', 'danger')
+        logger.error(f"Unexpected error in dashboard: {str(e)}")
+        flash('An unexpected error occurred. Please try again.', 'danger')
         return redirect(url_for('auth.select_role'))
 
 

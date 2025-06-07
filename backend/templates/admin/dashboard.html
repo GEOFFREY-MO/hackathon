@@ -212,29 +212,133 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6">
+                </div>
+
+                <!-- Products Overview -->
+                <div class="row mb-4">
+                    <div class="col-12">
                         <div class="card shadow-sm">
-                            <div class="card-header py-3 bg-gradient-success text-white">
-                                <h6 class="m-0 font-weight-bold">Recent Activity</h6>
+                            <div class="card-header py-3 bg-gradient-primary text-white">
+                                <h6 class="m-0 font-weight-bold">Products Overview</h6>
                             </div>
                             <div class="card-body">
-                                <div class="activity-feed">
-                                    {% for sale in recent_sales[:5] %}
-                                    <div class="activity-item mb-3">
-                                        <div class="d-flex align-items-center">
-                                            <div class="activity-icon me-3">
-                                                <i class="fas fa-shopping-cart text-success"></i>
-                                            </div>
-                                            <div>
-                                                <h6 class="mb-1">{{ sale.shop.name }}</h6>
-                                                <p class="mb-0 text-muted">
-                                                    Sold {{ sale.quantity }} items for KES {{ "%.2f"|format(sale.quantity * sale.price) }}
-                                                </p>
-                                                <small class="text-muted">{{ sale.sale_date.strftime('%Y-%m-%d %H:%M') }}</small>
-                                            </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted mb-3">Recent Products</h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Product</th>
+                                                        <th>Category</th>
+                                                        <th>Price</th>
+                                                        <th>Stock</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for product in recent_products %}
+                                                    <tr>
+                                                        <td>{{ product.name }}</td>
+                                                        <td>{{ product.category }}</td>
+                                                        <td>KES {{ "%.2f"|format(product.price) }}</td>
+                                                        <td>{{ product.total_stock }}</td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </div>
-                                    {% endfor %}
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted mb-3">Low Stock Products</h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Product</th>
+                                                        <th>Current Stock</th>
+                                                        <th>Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for product in low_stock_products %}
+                                                    <tr>
+                                                        <td>{{ product.name }}</td>
+                                                        <td>{{ product.total_stock }}</td>
+                                                        <td>
+                                                            <span class="badge bg-danger">Low Stock</span>
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-center mt-3">
+                                    <a href="{{ url_for('admin.manage_products') }}" class="btn btn-primary">
+                                        <i class="fas fa-box me-2"></i>Manage Products
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Services Overview -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card shadow-sm">
+                            <div class="card-header py-3 bg-gradient-success text-white">
+                                <h6 class="m-0 font-weight-bold">Services Overview</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted mb-3">Active Services</h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Service</th>
+                                                        <th>Category</th>
+                                                        <th>Price</th>
+                                                        <th>Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for service in active_services %}
+                                                    <tr>
+                                                        <td>{{ service.name }}</td>
+                                                        <td>{{ service.category }}</td>
+                                                        <td>KES {{ "%.2f"|format(service.price) }}</td>
+                                                        <td>
+                                                            <span class="badge bg-success">Active</span>
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted mb-3">Service Categories</h6>
+                                        <div class="list-group">
+                                            {% for category in service_categories %}
+                                            <div class="list-group-item">
+                                                <div class="d-flex w-100 justify-content-between">
+                                                    <h6 class="mb-1">{{ category.name }}</h6>
+                                                    <small>{{ category.service_count }} services</small>
+                                                </div>
+                                                <p class="mb-1 text-muted">{{ category.description }}</p>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-center mt-3">
+                                    <a href="{{ url_for('admin.manage_services') }}" class="btn btn-success">
+                                        <i class="fas fa-cogs me-2"></i>Manage Services
+                                    </a>
                                 </div>
                             </div>
                         </div>
