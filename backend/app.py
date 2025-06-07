@@ -25,26 +25,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def create_app():
+def create_app(config_class=None):
     # Initialize Flask app
     app = Flask(__name__)
 
-    # Configuration
-    class Config:
-        SECRET_KEY = os.getenv("FLASK_SECRET", "dev_secret")
-        SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "sqlite:///smartretail.db")
-        SQLALCHEMY_TRACK_MODIFICATIONS = False
-        DEBUG = os.getenv("FLASK_DEBUG", "True").lower() == "true"
-
-    class DevelopmentConfig(Config):
-        DEBUG = True
-
-    class ProductionConfig(Config):
-        DEBUG = False
-
-    # Set configuration based on environment
-    config = DevelopmentConfig if os.getenv("FLASK_ENV") == "development" else ProductionConfig
-    app.config.from_object(config)
+    # Set configuration
+    if config_class:
+        app.config.from_object(config_class)
+    else:
+        # Default configuration if none provided
+        app.config.from_object(Config)
 
     # Ensure instance folder exists
     try:
