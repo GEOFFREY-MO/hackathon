@@ -3017,42 +3017,41 @@ def add_product():
         try:
             name = request.form.get('name')
             barcode = request.form.get('barcode')
-            marked_price = float(request.form.get('marked_price', 0))
             category = request.form.get('category')
-            selected_shops = request.form.getlist('shops')
+            marked_price = float(request.form.get('marked_price', 0))
             
             # Create new product
             product = Product(
                 name=name,
                 barcode=barcode,
-                marked_price=marked_price,
-                category=category
+                category=category,
+                marked_price=marked_price
             )
             db.session.add(product)
             db.session.flush()  # Get the product ID
             
-            # Add inventory for selected shops
-            for shop_id in selected_shops:
-                quantity = int(request.form.get(f'quantity_{shop_id}', 0))
-                inventory = Inventory(
-                    product_id=product.id,
-                    shop_id=int(shop_id),
-                    quantity=quantity
-                )
-                db.session.add(inventory)
+            # Add inventory for each shop
+            shops = Shop.query.all()
+            for shop in shops:
+                quantity = int(request.form.get(f'quantity_{shop.id}', 0))
+                if quantity > 0:
+                    inventory = Inventory(
+                        product_id=product.id,
+                        shop_id=shop.id,
+                        quantity=quantity
+                    )
+                    db.session.add(inventory)
             
             db.session.commit()
             flash('Product added successfully!', 'success')
             return redirect(url_for('admin.manage_products'))
-            
-        except Exception as e:
-            db.session.rollback()
-            logger.error(f"Error adding product: {str(e)}")
-            flash('Error adding product. Please try again.', 'danger')
-    
-    # GET request - show form
-    shops = Shop.query.all()
-    return render_template('admin/add_product.html', shops=shops)
+        
+        shops = Shop.query.all()
+        return render_template('admin/add_product.html', shops=shops)
+    except Exception as e:
+        app.logger.error(f"Error in add_product: {str(e)}")
+        flash('Error adding product. Please try again.', 'error')
+        return redirect(url_for('admin.manage_products'))
 
 @admin_bp.route('/products/<int:product_id>/edit', methods=['GET', 'POST'])
 @login_required

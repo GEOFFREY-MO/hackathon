@@ -240,7 +240,7 @@
                                                     <tr>
                                                         <td>{{ product.name }}</td>
                                                         <td>{{ product.category }}</td>
-                                                        <td>KES {{ "%.2f"|format(product.price) }}</td>
+                                                        <td>KES {{ "%.2f"|format(product.marked_price) }}</td>
                                                         <td>{{ product.total_stock }}</td>
                                                     </tr>
                                                     {% endfor %}
