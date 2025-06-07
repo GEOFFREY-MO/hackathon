@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
 from flask_login import login_required, current_user
-from backend.database.models import db, Shop, Product, Inventory, Sale, Service, ServiceSale, User, Resource, ShopResource, ResourceUpdate, Expense, ResourceAlert, ResourceHistory
+from backend.database.models import db, Shop, Product, Inventory, Sale, Service, ServiceSale, User, Resource, ShopResource, ResourceUpdate, Expense, ResourceAlert, ResourceHistory, ServiceCategory
 from datetime import datetime, timedelta
 import logging
 from sqlalchemy import func
@@ -948,19 +948,25 @@ def services():
         # Get services for the current shop
         services = Service.query.filter_by(
             shop_id=current_user.shop_id, is_active=True).all()
+        
+        # Get service categories
+        categories = ServiceCategory.query.all()
+        
         # Get service sales for the current shop
         service_sales = ServiceSale.query.filter_by(
             shop_id=current_user.shop_id).order_by(
             ServiceSale.sale_date.desc()).all()
+        
         # Get employees for the current shop
         employees = User.query.filter_by(
             shop_id=current_user.shop_id,
             role='employee').all()
 
         return render_template('employee/services.html',
-                               services=services,
-                               service_sales=service_sales,
-                               employees=employees)
+                             services=services,
+                             categories=categories,
+                             service_sales=service_sales,
+                             employees=employees)
     except Exception as e:
         logger.error(f"Error loading services: {str(e)}")
         flash('Error loading services. Please try again.', 'error')

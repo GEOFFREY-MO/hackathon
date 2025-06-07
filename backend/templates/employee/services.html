@@ -104,22 +104,36 @@
                     <div class="tab-content mt-3" id="serviceTabsContent">
                         <!-- Available Services Tab -->
                         <div class="tab-pane fade show active" id="available" role="tabpanel">
-                            <div class="row">
-                                {% for service in services %}
-                                <div class="col-md-4 mb-4">
-                                        <div class="card h-100 shadow-sm">
-                                        <div class="card-body">
-                                            <h5 class="card-title">{{ service.name }}</h5>
-                                            <p class="card-text">{{ service.description }}</p>
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                    <span class="h5 mb-0">KES {{ "%.2f"|format(service.price) }}</span>
-                                                <span class="text-muted">{{ service.duration }} mins</span>
+                            {% if categories %}
+                                {% for category in categories %}
+                                    {% set category_services = services|selectattr('category', 'equalto', category.name)|list %}
+                                    {% if category_services %}
+                                        <div class="mb-4">
+                                            <h4 class="mb-3">{{ category.name }}</h4>
+                                            <div class="row">
+                                                {% for service in category_services %}
+                                                <div class="col-md-4 mb-4">
+                                                    <div class="card h-100 shadow-sm">
+                                                        <div class="card-body">
+                                                            <h5 class="card-title">{{ service.name }}</h5>
+                                                            <p class="card-text">{{ service.description }}</p>
+                                                            <div class="d-flex justify-content-between align-items-center">
+                                                                <span class="h5 mb-0">KES {{ "%.2f"|format(service.price) }}</span>
+                                                                <span class="text-muted">{{ service.duration }} mins</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
+                                                {% endfor %}
                                             </div>
                                         </div>
-                                    </div>
-                                    {% endfor %}
-                            </div>
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <div class="alert alert-info">
+                                    No services available at the moment.
+                                </div>
+                            {% endif %}
                         </div>
                         
                         <!-- Service History Tab -->
@@ -131,6 +145,7 @@
                                             <th>Date & Time</th>
                                             <th>Customer</th>
                                             <th>Service</th>
+                                            <th>Category</th>
                                             <th>Amount</th>
                                             <th>Payment Method</th>
                                             <th>Status</th>
@@ -143,30 +158,18 @@
                                             <td>{{ sale.sale_date.strftime('%Y-%m-%d %H:%M') }}</td>
                                             <td>{{ sale.customer_name }}</td>
                                             <td>{{ sale.service.name }}</td>
+                                            <td>{{ sale.service.category }}</td>
                                             <td>KES {{ "%.2f"|format(sale.price) }}</td>
+                                            <td>{{ sale.payment_method }}</td>
                                             <td>
-                                                <span class="badge {% if sale.payment_method == 'cash' %}bg-success{% elif sale.payment_method == 'till' %}bg-primary{% else %}bg-info{% endif %}">
-                                                    {{ sale.payment_method|title }}
+                                                <span class="badge bg-{{ 'success' if sale.status == 'completed' else 'warning' if sale.status == 'active' else 'danger' }}">
+                                                    {{ sale.status }}
                                                 </span>
                                             </td>
                                             <td>
-                                                    <span class="badge {% if sale.status == 'completed' %}bg-success{% elif sale.status == 'active' %}bg-primary{% elif sale.status == 'cancelled' %}bg-danger{% else %}bg-warning{% endif %}">
-                                                        {{ sale.status|title }}
-                                                    </span>
-                                            </td>
-                                            <td>
-                                                {% if sale.status == 'pending' %}
-                                                    <button class="btn btn-sm btn-success" onclick="updateServiceStatus('{{ sale.id }}', 'active')">
-                                                        <i class="fas fa-play"></i> Start
-                                                    </button>
-                                                {% elif sale.status == 'active' %}
-                                                    <button class="btn btn-sm btn-primary" onclick="updateServiceStatus('{{ sale.id }}', 'completed')">
-                                                        <i class="fas fa-check"></i> Complete
-                                                    </button>
-                                                    <button class="btn btn-sm btn-danger" onclick="updateServiceStatus('{{ sale.id }}', 'cancelled')">
-                                                        <i class="fas fa-times"></i> Cancel
-                                                    </button>
-                                                {% endif %}
+                                                <button class="btn btn-sm btn-primary" onclick="updateServiceStatus('{{ sale.id }}', 'completed')" {% if sale.status == 'completed' %}disabled{% endif %}>
+                                                    <i class="fas fa-check"></i> Complete
+                                                </button>
                                             </td>
                                         </tr>
                                         {% else %}
@@ -201,11 +204,20 @@
                         <input type="text" class="form-control" name="customer_name" required>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Service Category</label>
+                        <select class="form-select" name="category" id="categorySelect" required onchange="updateServices()">
+                            <option value="">Select a category</option>
+                            {% for category in categories %}
+                            <option value="{{ category.name }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Service</label>
                         <select class="form-select" name="service_id" id="serviceSelect" required onchange="updatePrice()">
                             <option value="">Select a service</option>
                             {% for service in services %}
-                            <option value="{{ service.id }}" data-price="{{ service.price }}">{{ service.name }}</option>
+                            <option value="{{ service.id }}" data-price="{{ service.price }}" data-category="{{ service.category }}">{{ service.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -453,6 +465,26 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+function updateServices() {
+    const categorySelect = document.getElementById('categorySelect');
+    const serviceSelect = document.getElementById('serviceSelect');
+    const selectedCategory = categorySelect.value;
+    
+    // Clear current options
+    serviceSelect.innerHTML = '<option value="">Select a service</option>';
+    
+    // Add filtered services
+    const services = Array.from(serviceSelect.options).slice(1);
+    services.forEach(service => {
+        if (service.dataset.category === selectedCategory) {
+            serviceSelect.appendChild(service.cloneNode(true));
+        }
+    });
+    
+    // Reset price
+    document.getElementById('priceInput').value = '';
+}
+
 function updatePrice() {
     const serviceSelect = document.getElementById('serviceSelect');
     const priceInput = document.getElementById('priceInput');
@@ -477,7 +509,6 @@ function updateServiceStatus(saleId, newStatus) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Reload the page to show updated status
             window.location.reload();
         } else {
             alert('Error updating service status: ' + data.message);
