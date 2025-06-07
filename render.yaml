@@ -3,10 +3,10 @@ services:
     name: smartretailai
     env: python
     buildCommand: chmod +x deploy.sh && ./deploy.sh
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 4 --timeout 120
+    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 4 --timeout 120
     envVars:
       - key: FLASK_APP
-        value: app.py
+        value: wsgi.py
       - key: FLASK_ENV
         value: production
       - key: PYTHON_VERSION
@@ -15,6 +15,8 @@ services:
         fromDatabase:
           name: smartretailai-db
           property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
 
 databases:
   - name: smartretailai-db
