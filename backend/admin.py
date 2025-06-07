@@ -2535,8 +2535,8 @@ def get_sale_details(sale_id):
                 'shop_name': sale.shop.name,
                 'product_name': sale.product.name,
                 'quantity': sale.quantity,
-                'price': float(sale.price),
-                'total': float(sale.price * sale.quantity)
+                'price': float(sale.product.marked_price),
+                'total': float(sale.product.marked_price * sale.quantity)
             }
         })
     except Exception as e:
@@ -2604,9 +2604,9 @@ def download_sales_report():
         elif sort_by == 'date_asc':
             query = query.order_by(Sale.sale_date.asc())
         elif sort_by == 'amount_desc':
-            query = query.order_by((Sale.price * Sale.quantity).desc())
+            query = query.order_by((Sale.product.marked_price * Sale.quantity).desc())
         elif sort_by == 'amount_asc':
-            query = query.order_by((Sale.price * Sale.quantity).asc())
+            query = query.order_by((Sale.product.marked_price * Sale.quantity).asc())
 
         # Get sales data
         sales = query.all()
@@ -2628,8 +2628,8 @@ def download_sales_report():
                     'Product': sale.product.name,
                     'Category': sale.product.category,
                     'Quantity': sale.quantity,
-                    'Price': float(sale.price),
-                    'Total': float(sale.price * sale.quantity),
+                    'Price': float(sale.product.marked_price),
+                    'Total': float(sale.product.marked_price * sale.quantity),
                     'Payment Method': sale.payment_method.title(),
                     'Customer': sale.customer_name or 'N/A'
                 })
@@ -2718,7 +2718,6 @@ def download_sales_report():
                     'bold': True,
                     'bg_color': '#4CAF50',
                     'font_color': 'white',
-                    'border': 1
                 })
 
                 # Add number format
