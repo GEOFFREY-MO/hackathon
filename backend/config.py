@@ -1,5 +1,6 @@
 import os
 from datetime import timedelta
+import re
 
 class Config:
     # Base configuration
@@ -17,6 +18,10 @@ class Config:
     REMEMBER_COOKIE_SECURE = True
     REMEMBER_COOKIE_HTTPONLY = True
 
+    @staticmethod
+    def init_app(app):
+        pass
+
 class DevelopmentConfig(Config):
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or \
@@ -24,8 +29,19 @@ class DevelopmentConfig(Config):
 
 class ProductionConfig(Config):
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'sqlite:///' + os.path.join(os.path.dirname(os.path.abspath(__file__)), 'prod.db')
+    
+    # Handle PostgreSQL URL from Render
+    @classmethod
+    def get_database_url(cls):
+        database_url = os.environ.get('DATABASE_URL')
+        if database_url:
+            # Convert postgres:// to postgresql:// for SQLAlchemy
+            if database_url.startswith('postgres://'):
+                database_url = database_url.replace('postgres://', 'postgresql://', 1)
+            return database_url
+        return 'sqlite:///' + os.path.join(os.path.dirname(os.path.abspath(__file__)), 'prod.db')
+    
+    SQLALCHEMY_DATABASE_URI = get_database_url()
     
     # Production security settings
     SESSION_COOKIE_SECURE = True
