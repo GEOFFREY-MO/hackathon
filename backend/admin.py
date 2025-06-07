@@ -270,7 +270,7 @@ def get_recent_sales():
             'shop_name': sale.shop.name,
             'product_name': sale.product.name,
             'quantity': sale.quantity,
-            'total': float(sale.price * sale.quantity)
+            'total': float(sale.product.marked_price * sale.quantity)
         } for sale in sales]
 
         logger.info(f"Found {len(sales_data)} recent sales")
@@ -303,7 +303,7 @@ def export_data():
 
         # Write header
         writer.writerow(['Shop', 'Product', 'Barcode', 'Category',
-                        'Price Range', 'Quantity', 'Last Updated'])
+                        'Marked Price', 'Quantity', 'Last Updated'])
 
         # Get all inventory data
         inventory_data = (
@@ -320,7 +320,7 @@ def export_data():
                 product.name,
                 product.barcode,
                 product.category,
-                product.price_range,
+                product.marked_price,
                 inventory.quantity,
                 inventory.updated_at.strftime('%Y-%m-%d %H:%M:%S')
             ])
@@ -2816,7 +2816,7 @@ def get_sales_summary():
         }
 
         for sale, product, shop in sales_data:
-            sale_amount = sale.quantity * sale.price
+            sale_amount = sale.quantity * product.marked_price
 
             # Update totals
             summary['total_sales'] += sale_amount
@@ -2943,8 +2943,8 @@ def get_detailed_sales():
                 'product_name': product.name,
                 'category': product.category,
                 'quantity': sale.quantity,
-                'price': sale.price,
-                'total': sale.quantity * sale.price,
+                'price': product.marked_price,
+                'total': sale.quantity * product.marked_price,
                 'payment_method': sale.payment_method,
                 'customer_name': sale.customer_name
             })
