@@ -1170,13 +1170,75 @@ def manage_services():
     service_sales = ServiceSale.query.order_by(
         ServiceSale.sale_date.desc()).all()
 
+    # Get all service categories
+    categories = ServiceCategory.query.all()
+
     shops = Shop.query.all()
     return render_template(
         'admin/services.html',
         services=services,
         shops=shops,
-        service_sales=service_sales)
+        service_sales=service_sales,
+        categories=categories)
 
+@admin_bp.route('/services/categories', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def manage_service_categories():
+    """Manage service categories."""
+    if request.method == 'POST':
+        try:
+            name = request.form.get('name')
+            description = request.form.get('description')
+            
+            if not name:
+                flash('Category name is required.', 'danger')
+                return redirect(url_for('admin.manage_service_categories'))
+            
+            category = ServiceCategory(
+                name=name,
+                description=description
+            )
+            db.session.add(category)
+            db.session.commit()
+            
+            flash('Category added successfully!', 'success')
+            return redirect(url_for('admin.manage_service_categories'))
+        except Exception as e:
+            db.session.rollback()
+            flash('Error adding category.', 'danger')
+    
+    categories = ServiceCategory.query.all()
+    return render_template('admin/service_categories.html', categories=categories)
+
+@admin_bp.route('/services/categories/<int:category_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_service_category(category_id):
+    """Delete a service category."""
+    try:
+        category = ServiceCategory.query.get_or_404(category_id)
+        
+        # Check if category is in use
+        if Service.query.filter_by(category=category.name).first():
+            return jsonify({
+                'success': False,
+                'message': 'Cannot delete category: It is being used by one or more services'
+            }), 400
+        
+        db.session.delete(category)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Category deleted successfully'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Error deleting category: {str(e)}'
+        }), 500
 
 @admin_bp.route('/services/add', methods=['GET', 'POST'])
 @login_required
@@ -3052,3 +3114,25 @@ def delete_product(product_id):
         flash('Error deleting product. Please try again.', 'danger')
     
     return redirect(url_for('admin.manage_products'))
+
+@admin_bp.route('/services/<int:service_id>')
+@login_required
+@admin_required
+def get_service(service_id):
+    """Get service details for editing."""
+    try:
+        service = Service.query.get_or_404(service_id)
+        return jsonify({
+            'id': service.id,
+            'name': service.name,
+            'description': service.description,
+            'price': service.price,
+            'duration': service.duration,
+            'category': service.category,
+            'shop_id': service.shop_id,
+            'is_active': service.is_active
+        })
+    except Exception as e:
+        return jsonify({
+            'error': str(e)
+        }), 500

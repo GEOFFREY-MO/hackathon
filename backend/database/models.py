@@ -102,6 +102,19 @@ class Service(db.Model):
     def __repr__(self):
         return f'<Service {self.name}>'
 
+class ServiceCategory(db.Model):
+    """Model for service categories."""
+    __tablename__ = 'service_category'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False, unique=True)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<ServiceCategory {self.name}>'
+
 class ServiceSale(db.Model):
     """Model for service sales."""
     id = db.Column(db.Integer, primary_key=True)

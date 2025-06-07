@@ -44,7 +44,7 @@ def create_app(config_class=None):
 
     # Initialize extensions
     db.init_app(app)
-    migrate = Migrate(app, db, directory='migrations')
+    migrate = Migrate(app, db, directory=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'migrations'))
     login_manager = LoginManager(app)
     login_manager.login_view = 'auth.login'
 

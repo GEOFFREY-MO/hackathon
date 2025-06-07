@@ -96,6 +96,40 @@ class ResourceCategory(db.Model):
     def __repr__(self):
         return f'<ResourceCategory {self.name}>'
 
+class ServiceCategory(db.Model):
+    __tablename__ = 'service_categories'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False, unique=True)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    services = db.relationship('Service', back_populates='category')
+    
+    def __repr__(self):
+        return f'<ServiceCategory {self.name}>'
+
+class Service(db.Model):
+    __tablename__ = 'services'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    category_id = db.Column(db.Integer, db.ForeignKey('service_categories.id'))
+    price = db.Column(db.Float, nullable=False, default=0.0)
+    duration = db.Column(db.Integer)  # Duration in minutes
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    category = db.relationship('ServiceCategory', back_populates='services')
+    
+    def __repr__(self):
+        return f'<Service {self.name}>'
+
 # Event listeners for resource tracking
 @event.listens_for(ShopResource, 'after_update')
 def track_resource_changes(mapper, connection, target):
