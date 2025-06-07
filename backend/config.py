@@ -4,7 +4,7 @@ import re
 
 class Config:
     # Base configuration
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-secret-key-here'
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'hard-to-guess-string'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     PERMANENT_SESSION_LIFETIME = timedelta(days=1)
     
@@ -28,26 +28,21 @@ class DevelopmentConfig(Config):
         'sqlite:///' + os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dev.db')
 
 class ProductionConfig(Config):
-    DEBUG = False
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     
-    # Handle PostgreSQL URL from Render
     @staticmethod
     def get_database_url():
-        database_url = os.environ.get('DATABASE_URL')
-        if database_url:
-            # Convert postgres:// to postgresql:// for SQLAlchemy
-            if database_url.startswith('postgres://'):
-                database_url = database_url.replace('postgres://', 'postgresql://', 1)
-            return database_url
-        return 'sqlite:///' + os.path.join(os.path.dirname(os.path.abspath(__file__)), 'prod.db')
+        """Convert postgres:// to postgresql:// for SQLAlchemy compatibility"""
+        url = os.environ.get('DATABASE_URL')
+        if url and url.startswith('postgres://'):
+            url = url.replace('postgres://', 'postgresql://', 1)
+        return url
     
-    SQLALCHEMY_DATABASE_URI = get_database_url()
-    
-    # Production security settings
-    SESSION_COOKIE_SECURE = True
-    SESSION_COOKIE_HTTPONLY = True
-    REMEMBER_COOKIE_SECURE = True
-    REMEMBER_COOKIE_HTTPONLY = True
+    @classmethod
+    def init_app(cls, app):
+        Config.init_app(app)
+        # Set the database URL after app initialization
+        app.config['SQLALCHEMY_DATABASE_URI'] = cls.get_database_url()
 
 class TestingConfig(Config):
     TESTING = True
@@ -57,7 +52,7 @@ class TestingConfig(Config):
 
 config = {
     'development': DevelopmentConfig,
-    'production': ProductionConfig,
     'testing': TestingConfig,
+    'production': ProductionConfig,
     'default': DevelopmentConfig
 } 
