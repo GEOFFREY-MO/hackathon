@@ -71,6 +71,8 @@ def dashboard():
         shops = []
         recent_sales = []
         low_stock_items = []
+        active_services = []
+        service_categories = []
 
         # Get period filter
         period = request.args.get('period', 'today')
@@ -106,22 +108,6 @@ def dashboard():
             stats['total_products'] = len(all_products)
             logger.info(f"Found {stats['total_products']} products")
 
-            # Get recent products with stock levels
-            recent_products = db.session.query(
-                Product,
-                func.sum(Inventory.quantity).label('total_stock')
-            ).join(Inventory).group_by(Product.id).order_by(
-                Product.created_at.desc()
-            ).limit(5).all()
-
-            # Get low stock products
-            low_stock_products = db.session.query(
-                Product,
-                func.sum(Inventory.quantity).label('total_stock')
-            ).join(Inventory).group_by(Product.id).having(
-                func.sum(Inventory.quantity) < 10
-            ).limit(5).all()
-
             # Get inventory items with optimized query
             logger.info("Fetching inventory data")
             all_inventory = (
@@ -146,8 +132,6 @@ def dashboard():
         except Exception as e:
             logger.error(f"Error getting product statistics: {str(e)}")
             flash('Error loading product data. Some statistics may be incomplete.', 'warning')
-            recent_products = []
-            low_stock_products = []
 
         # Get services data
         try:
@@ -156,18 +140,19 @@ def dashboard():
             stats['total_services'] = Service.query.count()
             stats['active_services'] = Service.query.filter_by(is_active=True).count()
             
-            # Get service categories with counts
+            # Get service categories with counts using a subquery
             service_categories = db.session.query(
                 ServiceCategory,
                 func.count(Service.id).label('service_count')
-            ).join(Service).group_by(ServiceCategory.id).all()
+            ).outerjoin(
+                Service,
+                Service.category == ServiceCategory.name
+            ).group_by(ServiceCategory.id).all()
             
             logger.info(f"Found {len(active_services)} active services")
         except Exception as e:
             logger.error(f"Error getting services data: {str(e)}")
             flash('Error loading services data. Some statistics may be incomplete.', 'warning')
-            active_services = []
-            service_categories = []
 
         # Get sales data with period filtering
         try:
