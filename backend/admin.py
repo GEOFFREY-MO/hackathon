@@ -63,7 +63,9 @@ def dashboard():
             'total_users': 0,
             'active_users': 0,
             'total_products': 0,
-            'low_stock_count': 0
+            'low_stock_count': 0,
+            'total_services': 0,
+            'active_services': 0
         }
 
         shops = []
@@ -150,7 +152,9 @@ def dashboard():
         # Get services data
         try:
             logger.info("Fetching services data")
-            active_services = Service.query.filter_by(status='active').limit(5).all()
+            active_services = Service.query.filter_by(is_active=True).limit(5).all()
+            stats['total_services'] = Service.query.count()
+            stats['active_services'] = Service.query.filter_by(is_active=True).count()
             
             # Get service categories with counts
             service_categories = db.session.query(
@@ -202,23 +206,24 @@ def dashboard():
             stats['total_transactions'] = len(sales)
             stats['average_sale'] = stats['total_sales'] / stats['total_transactions'] if stats['total_transactions'] > 0 else 0
 
-            # Get recent sales with limit
-            recent_sales = query.order_by(Sale.sale_date.desc()).limit(20).all()
+            # Get recent sales
+            recent_sales = query.order_by(Sale.sale_date.desc()).limit(5).all()
             logger.info(f"Found {len(recent_sales)} recent sales")
 
         except Exception as e:
             logger.error(f"Error getting sales data: {str(e)}")
             flash('Error loading sales data. Some statistics may be incomplete.', 'warning')
 
-        return render_template('admin/dashboard.html',
-                             stats=stats,
-                             recent_sales=recent_sales,
-                             low_stock_items=low_stock_items,
-                             recent_products=recent_products,
-                             low_stock_products=low_stock_products,
-                             active_services=active_services,
-                             service_categories=service_categories,
-                             period=period)
+        return render_template(
+            'admin/dashboard.html',
+            stats=stats,
+            shops=all_shops,
+            recent_sales=recent_sales,
+            low_stock_items=low_stock_items,
+            active_services=active_services,
+            service_categories=service_categories,
+            period=period
+        )
 
     except Exception as e:
         logger.error(f"Unexpected error in dashboard: {str(e)}")
