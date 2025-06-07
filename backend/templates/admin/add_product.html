@@ -1,0 +1,116 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="container-fluid px-4" style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); min-height: 100vh;">
+    <h1 class="mt-4">Add New Product</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('admin.manage_products') }}">Products</a></li>
+        <li class="breadcrumb-item active">Add Product</li>
+    </ol>
+
+    <div class="card mb-4">
+        <div class="card-header" style="background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%); color: white;">
+            <i class="fas fa-plus me-1"></i>
+            New Product Details
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('admin.add_product') }}">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="name" class="form-label">Product Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="category" class="form-label">Category</label>
+                            <input type="text" class="form-control" id="category" name="category" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="price" class="form-label">Price</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="price" name="price" step="0.01" min="0" required>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <div class="form-group">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header" style="background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%); color: white;">
+                        <i class="fas fa-store me-1"></i>
+                        Shop Inventory
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            {% for shop in shops %}
+                            <div class="col-md-4 mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input shop-selector" type="checkbox" 
+                                           name="shops" value="{{ shop.id }}" 
+                                           id="shop{{ shop.id }}">
+                                    <label class="form-check-label" for="shop{{ shop.id }}">
+                                        {{ shop.name }}
+                                    </label>
+                                </div>
+                                <div class="input-group mt-2">
+                                    <span class="input-group-text">Qty</span>
+                                    <input type="number" class="form-control quantity-input" 
+                                           name="quantity_{{ shop.id }}" 
+                                           id="quantity_{{ shop.id }}" 
+                                           min="0" value="0" disabled>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('admin.manage_products') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Products
+                    </a>
+                    <button type="submit" class="btn" style="background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%); color: white; border: none;">
+                        <i class="fas fa-save"></i> Save Product
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Enable/disable quantity inputs based on shop selection
+    const shopSelectors = document.querySelectorAll('.shop-selector');
+    shopSelectors.forEach(selector => {
+        selector.addEventListener('change', function() {
+            const quantityInput = document.getElementById('quantity_' + this.value);
+            quantityInput.disabled = !this.checked;
+            if (!this.checked) {
+                quantityInput.value = 0;
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+
+{% endblock %} 

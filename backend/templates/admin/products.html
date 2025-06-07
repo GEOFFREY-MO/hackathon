@@ -1,0 +1,88 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="container-fluid px-4" style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); min-height: 100vh;">
+    <h1 class="mt-4">Product Management</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+        <li class="breadcrumb-item active">Products</li>
+    </ol>
+
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%); color: white;">
+            <div>
+                <i class="fas fa-box me-1"></i>
+                Products
+            </div>
+            <a href="{{ url_for('admin.add_product') }}" class="btn" style="background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%); color: white; border: none;">
+                <i class="fas fa-plus"></i> Add New Product
+            </a>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead style="background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%); color: white;">
+                        <tr>
+                            <th>Name</th>
+                            <th>Category</th>
+                            <th>Price</th>
+                            {% for shop in shops %}
+                            <th>{{ shop.name }} Stock</th>
+                            {% endfor %}
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in products %}
+                        <tr>
+                            <td>{{ item.product.name }}</td>
+                            <td>{{ item.product.category }}</td>
+                            <td>${{ "%.2f"|format(item.product.price) }}</td>
+                            {% for shop in shops %}
+                            <td>{{ item.shop_inventory.get(shop.id, 0) }}</td>
+                            {% endfor %}
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{{ url_for('admin.edit_product', product_id=item.product.id) }}" 
+                                       class="btn btn-sm" style="background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%); color: white; border: none;">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <button type="button" 
+                                            class="btn btn-sm btn-danger" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#deleteModal{{ item.product.id }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Delete Confirmation Modal -->
+                                <div class="modal fade" id="deleteModal{{ item.product.id }}" tabindex="-1">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header" style="background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%); color: white;">
+                                                <h5 class="modal-title">Confirm Delete</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                Are you sure you want to delete "{{ item.product.name }}"?
+                                                This action cannot be undone.
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <form action="{{ url_for('admin.delete_product', product_id=item.product.id) }}" method="POST" class="d-inline">
+                                                    <button type="submit" class="btn btn-danger">Delete</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -2959,3 +2959,150 @@ def get_detailed_sales():
             'status': 'error',
             'message': str(e)
         }), 500
+
+@admin_bp.route('/products')
+@login_required
+@admin_required
+def manage_products():
+    """Show product management page with list of all products."""
+    try:
+        # Get all products with their inventory across shops
+        products = Product.query.all()
+        shops = Shop.query.all()
+        
+        # Get inventory data for each product
+        product_data = []
+        for product in products:
+            inventory = Inventory.query.filter_by(product_id=product.id).all()
+            shop_inventory = {inv.shop_id: inv.quantity for inv in inventory}
+            
+            product_data.append({
+                'product': product,
+                'shop_inventory': shop_inventory
+            })
+        
+        return render_template('admin/products.html', 
+                             products=product_data,
+                             shops=shops)
+    except Exception as e:
+        logger.error(f"Error in manage_products: {str(e)}")
+        flash('Error loading products. Please try again.', 'danger')
+        return redirect(url_for('admin.dashboard'))
+
+@admin_bp.route('/products/add', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def add_product():
+    """Add a new product to the system."""
+    if request.method == 'POST':
+        try:
+            name = request.form.get('name')
+            description = request.form.get('description')
+            price = float(request.form.get('price', 0))
+            category = request.form.get('category')
+            selected_shops = request.form.getlist('shops')
+            
+            # Create new product
+            product = Product(
+                name=name,
+                description=description,
+                price=price,
+                category=category
+            )
+            db.session.add(product)
+            db.session.flush()  # Get the product ID
+            
+            # Add inventory for selected shops
+            for shop_id in selected_shops:
+                quantity = int(request.form.get(f'quantity_{shop_id}', 0))
+                inventory = Inventory(
+                    product_id=product.id,
+                    shop_id=int(shop_id),
+                    quantity=quantity
+                )
+                db.session.add(inventory)
+            
+            db.session.commit()
+            flash('Product added successfully!', 'success')
+            return redirect(url_for('admin.manage_products'))
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error adding product: {str(e)}")
+            flash('Error adding product. Please try again.', 'danger')
+    
+    # GET request - show form
+    shops = Shop.query.all()
+    return render_template('admin/add_product.html', shops=shops)
+
+@admin_bp.route('/products/<int:product_id>/edit', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_product(product_id):
+    """Edit an existing product."""
+    product = Product.query.get_or_404(product_id)
+    
+    if request.method == 'POST':
+        try:
+            product.name = request.form.get('name')
+            product.description = request.form.get('description')
+            product.price = float(request.form.get('price', 0))
+            product.category = request.form.get('category')
+            
+            # Update inventory for each shop
+            for shop in Shop.query.all():
+                quantity = int(request.form.get(f'quantity_{shop.id}', 0))
+                inventory = Inventory.query.filter_by(
+                    product_id=product.id,
+                    shop_id=shop.id
+                ).first()
+                
+                if inventory:
+                    inventory.quantity = quantity
+                else:
+                    inventory = Inventory(
+                        product_id=product.id,
+                        shop_id=shop.id,
+                        quantity=quantity
+                    )
+                    db.session.add(inventory)
+            
+            db.session.commit()
+            flash('Product updated successfully!', 'success')
+            return redirect(url_for('admin.manage_products'))
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error updating product: {str(e)}")
+            flash('Error updating product. Please try again.', 'danger')
+    
+    # GET request - show form
+    shops = Shop.query.all()
+    inventory = {inv.shop_id: inv.quantity for inv in product.inventory}
+    return render_template('admin/edit_product.html',
+                         product=product,
+                         shops=shops,
+                         inventory=inventory)
+
+@admin_bp.route('/products/<int:product_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_product(product_id):
+    """Delete a product from the system."""
+    try:
+        product = Product.query.get_or_404(product_id)
+        
+        # Delete associated inventory first
+        Inventory.query.filter_by(product_id=product.id).delete()
+        
+        # Delete the product
+        db.session.delete(product)
+        db.session.commit()
+        
+        flash('Product deleted successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting product: {str(e)}")
+        flash('Error deleting product. Please try again.', 'danger')
+    
+    return redirect(url_for('admin.manage_products'))
