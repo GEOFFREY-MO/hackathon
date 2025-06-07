@@ -56,20 +56,18 @@ def dashboard():
             return redirect(url_for('auth.select_role'))
 
         # Initialize all variables with default values
-        stats = {
-            'total_sales': 0.0,
-            'total_items': 0,
-            'total_transactions': 0,
-            'average_sale': 0.0,
-            'total_shops': 0,
-            'active_shops': 0,
-            'total_users': 0,
-            'active_users': 0,
-            'total_products': 0,
-            'low_stock_count': 0,
-            'total_services': 0,
-            'active_services': 0
-        }
+        total_sales = 0.0
+        total_items = 0
+        total_transactions = 0
+        average_sale = 0.0
+        total_shops = 0
+        active_shops = 0
+        total_users = 0
+        active_users = 0
+        total_products = 0
+        low_stock_count = 0
+        total_services = 0
+        active_services = 0
 
         # Initialize all lists
         all_shops = []
@@ -86,9 +84,9 @@ def dashboard():
         try:
             logger.info("Fetching shop statistics")
             all_shops = Shop.query.all()
-            stats['total_shops'] = len(all_shops)
-            stats['active_shops'] = stats['total_shops']
-            logger.info(f"Found {stats['total_shops']} shops")
+            total_shops = len(all_shops)
+            active_shops = total_shops
+            logger.info(f"Found {total_shops} shops")
         except Exception as e:
             logger.error(f"Error getting shop statistics: {str(e)}")
             flash('Error loading shop data. Some statistics may be incomplete.', 'warning')
@@ -97,9 +95,9 @@ def dashboard():
         try:
             logger.info("Fetching user statistics")
             all_users = User.query.all()
-            stats['total_users'] = len(all_users)
-            stats['active_users'] = stats['total_users']
-            logger.info(f"Found {stats['total_users']} users")
+            total_users = len(all_users)
+            active_users = total_users
+            logger.info(f"Found {total_users} users")
         except Exception as e:
             logger.error(f"Error getting user statistics: {str(e)}")
             flash('Error loading user data. Some statistics may be incomplete.', 'warning')
@@ -108,8 +106,8 @@ def dashboard():
         try:
             logger.info("Fetching product statistics")
             all_products = Product.query.all()
-            stats['total_products'] = len(all_products)
-            logger.info(f"Found {stats['total_products']} products")
+            total_products = len(all_products)
+            logger.info(f"Found {total_products} products")
 
             # Get inventory items with optimized query
             logger.info("Fetching inventory data")
@@ -129,8 +127,8 @@ def dashboard():
                         'shop_name': shop.name,
                         'quantity': inv.quantity
                     })
-            stats['low_stock_count'] = len(low_stock_items)
-            logger.info(f"Found {stats['low_stock_count']} low stock items")
+            low_stock_count = len(low_stock_items)
+            logger.info(f"Found {low_stock_count} low stock items")
 
         except Exception as e:
             logger.error(f"Error getting product statistics: {str(e)}")
@@ -140,8 +138,8 @@ def dashboard():
         try:
             logger.info("Fetching services data")
             active_services = Service.query.filter_by(is_active=True).limit(5).all()
-            stats['total_services'] = Service.query.count()
-            stats['active_services'] = Service.query.filter_by(is_active=True).count()
+            total_services = Service.query.count()
+            active_services_count = Service.query.filter_by(is_active=True).count()
             
             # Get service categories with counts using a subquery
             service_categories = db.session.query(
@@ -192,14 +190,7 @@ def dashboard():
             total_sales = sum(sale.quantity * sale.price for sale in sales)
             total_items = sum(sale.quantity for sale in sales)
             total_transactions = len(sales)
-            
-            # Update stats dictionary
-            stats.update({
-                'total_sales': total_sales,
-                'total_items': total_items,
-                'total_transactions': total_transactions,
-                'average_sale': total_sales / total_transactions if total_transactions > 0 else 0.0
-            })
+            average_sale = total_sales / total_transactions if total_transactions > 0 else 0.0
 
             # Get recent sales
             recent_sales = query.order_by(Sale.sale_date.desc()).limit(5).all()
@@ -209,18 +200,26 @@ def dashboard():
             logger.error(f"Error getting sales data: {str(e)}")
             flash('Error loading sales data. Some statistics may be incomplete.', 'warning')
 
-        # Ensure all required variables are defined before rendering
-        template_data = {
-            'stats': stats,
-            'shops': all_shops,
-            'recent_sales': recent_sales,
-            'low_stock_items': low_stock_items,
-            'active_services': active_services,
-            'service_categories': service_categories,
-            'period': period
-        }
-
-        return render_template('admin/dashboard.html', **template_data)
+        # Pass all variables to the template
+        return render_template('admin/dashboard.html',
+            total_sales=total_sales,
+            total_items=total_items,
+            total_transactions=total_transactions,
+            average_sale=average_sale,
+            total_shops=total_shops,
+            active_shops=active_shops,
+            total_users=total_users,
+            active_users=active_users,
+            total_products=total_products,
+            low_stock_count=low_stock_count,
+            total_services=total_services,
+            active_services=active_services,
+            shops=all_shops,
+            recent_sales=recent_sales,
+            low_stock_items=low_stock_items,
+            service_categories=service_categories,
+            period=period
+        )
 
     except Exception as e:
         logger.error(f"Unexpected error in dashboard: {str(e)}")

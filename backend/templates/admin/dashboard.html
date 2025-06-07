@@ -322,21 +322,28 @@
                                     </div>
                                     <div class="col-md-6">
                                         <h6 class="text-muted mb-3">Service Categories</h6>
-                                        <div class="list-group">
-                                            {% for category in service_categories %}
-                                            <div class="list-group-item">
-                                                <div class="d-flex w-100 justify-content-between">
-                                                    <h6 class="mb-1">{{ category.name }}</h6>
-                                                    <small>{{ category.service_count }} services</small>
-                                                </div>
-                                                <p class="mb-1 text-muted">{{ category.description }}</p>
-                                            </div>
-                                            {% endfor %}
+                                        <div class="table-responsive">
+                                            <table class="table table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Category</th>
+                                                        <th>Services</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for category, count in service_categories %}
+                                                    <tr>
+                                                        <td>{{ category.name }}</td>
+                                                        <td>{{ count }}</td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="text-center mt-3">
-                                    <a href="{{ url_for('admin.manage_services') }}" class="btn btn-success">
+                                    <a href="{{ url_for('admin.manage_services') }}" class="btn btn-primary">
                                         <i class="fas fa-cogs me-2"></i>Manage Services
                                     </a>
                                 </div>
@@ -663,18 +670,12 @@ function initializeQuickAnalytics() {
     // Quick Stock Levels Chart
     const quickStockCtx = document.getElementById('quickStockLevels').getContext('2d');
     window.quickStockChart = new Chart(quickStockCtx, {
-        type: 'bar',
+        type: 'doughnut',
         data: {
-            labels: [],
+            labels: ['In Stock', 'Low Stock'],
             datasets: [{
-                label: 'Current Stock',
-                data: [],
-                backgroundColor: '#4e73df'
-            }, {
-                label: 'Reorder Level',
-                data: [],
-                backgroundColor: '#e74a3b',
-                type: 'line'
+                data: [0, 0],
+                backgroundColor: ['#1cc88a', '#e74a3b']
             }]
         },
         options: {
@@ -685,55 +686,54 @@ function initializeQuickAnalytics() {
                     display: false
                 }
             },
-            scales: {
-                x: {
-                    display: false
-                },
-                y: {
-                    display: false
-                }
-            }
+            cutout: '70%'
         }
     });
-
-    // Initial data load
-    updateQuickAnalytics();
 }
 
 function updateQuickAnalytics() {
-    // Fetch quick analytics data
-    fetch('/admin/analytics/data?period=week&quick=true')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Failed to fetch analytics data');
-            }
-            return response.json();
-        })
+    // Fetch updated data from the server
+    fetch('/admin/analytics/data')
+        .then(response => response.json())
         .then(data => {
-            // Update Quick Sales Trend Chart
-            quickSalesTrendChart.data.labels = data.sales_trend.labels;
-            quickSalesTrendChart.data.datasets[0].data = data.sales_trend.data;
-            quickSalesTrendChart.update();
-
-            // Update Quick Category Distribution Chart
-            quickCategoryChart.data.labels = data.category_distribution.labels;
-            quickCategoryChart.data.datasets[0].data = data.category_distribution.data;
-            quickCategoryChart.update();
-
-            // Update Quick Hourly Distribution Chart
-            quickHourlyChart.data.labels = data.hourly_distribution.labels;
-            quickHourlyChart.data.datasets[0].data = data.hourly_distribution.data;
-            quickHourlyChart.update();
-
-            // Update Quick Stock Levels Chart
-            quickStockChart.data.labels = data.stock_levels.labels;
-            quickStockChart.data.datasets[0].data = data.stock_levels.current;
-            quickStockChart.data.datasets[1].data = data.stock_levels.reorder;
-            quickStockChart.update();
+            // Update charts with new data
+            updateCharts(data);
         })
         .catch(error => {
-            console.error('Error fetching quick analytics data:', error);
+            console.error('Error updating analytics:', error);
         });
+}
+
+function updateCharts(data) {
+    // Update sales trend chart
+    if (window.quickSalesTrendChart) {
+        window.quickSalesTrendChart.data.labels = data.sales_trend.labels;
+        window.quickSalesTrendChart.data.datasets[0].data = data.sales_trend.data;
+        window.quickSalesTrendChart.update();
+    }
+
+    // Update category distribution chart
+    if (window.quickCategoryChart) {
+        window.quickCategoryChart.data.labels = data.category_distribution.labels;
+        window.quickCategoryChart.data.datasets[0].data = data.category_distribution.data;
+        window.quickCategoryChart.update();
+    }
+
+    // Update hourly distribution chart
+    if (window.quickHourlyChart) {
+        window.quickHourlyChart.data.labels = data.hourly_distribution.labels;
+        window.quickHourlyChart.data.datasets[0].data = data.hourly_distribution.data;
+        window.quickHourlyChart.update();
+    }
+
+    // Update stock levels chart
+    if (window.quickStockChart) {
+        window.quickStockChart.data.datasets[0].data = [
+            data.stock_levels.in_stock,
+            data.stock_levels.low_stock
+        ];
+        window.quickStockChart.update();
+    }
 }
 </script>
 {% endblock %}
