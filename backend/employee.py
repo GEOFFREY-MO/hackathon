@@ -8,7 +8,7 @@ import pandas as pd
 from io import BytesIO
 from werkzeug.utils import send_file
 import json
-from config import Config
+from backend.config import Config
 
 employee_bp = Blueprint('employee', __name__)
 
