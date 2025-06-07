@@ -3006,16 +3006,16 @@ def add_product():
     if request.method == 'POST':
         try:
             name = request.form.get('name')
-            description = request.form.get('description')
-            price = float(request.form.get('price', 0))
+            barcode = request.form.get('barcode')
+            marked_price = float(request.form.get('marked_price', 0))
             category = request.form.get('category')
             selected_shops = request.form.getlist('shops')
             
             # Create new product
             product = Product(
                 name=name,
-                description=description,
-                price=price,
+                barcode=barcode,
+                marked_price=marked_price,
                 category=category
             )
             db.session.add(product)
