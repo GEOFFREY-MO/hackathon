@@ -3058,17 +3058,18 @@ def add_product():
 @admin_required
 def edit_product(product_id):
     """Edit an existing product."""
-    product = Product.query.get_or_404(product_id)
-    
-    if request.method == 'POST':
-        try:
+    try:
+        product = Product.query.get_or_404(product_id)
+        
+        if request.method == 'POST':
             product.name = request.form.get('name')
-            product.description = request.form.get('description')
-            product.price = float(request.form.get('price', 0))
+            product.barcode = request.form.get('barcode')
             product.category = request.form.get('category')
+            product.marked_price = float(request.form.get('marked_price', 0))
             
             # Update inventory for each shop
-            for shop in Shop.query.all():
+            shops = Shop.query.all()
+            for shop in shops:
                 quantity = int(request.form.get(f'quantity_{shop.id}', 0))
                 inventory = Inventory.query.filter_by(
                     product_id=product.id,
@@ -3089,18 +3090,24 @@ def edit_product(product_id):
             flash('Product updated successfully!', 'success')
             return redirect(url_for('admin.manage_products'))
             
-        except Exception as e:
-            db.session.rollback()
-            logger.error(f"Error updating product: {str(e)}")
-            flash('Error updating product. Please try again.', 'danger')
-    
-    # GET request - show form
-    shops = Shop.query.all()
-    inventory = {inv.shop_id: inv.quantity for inv in product.inventory}
-    return render_template('admin/edit_product.html',
-                         product=product,
-                         shops=shops,
-                         inventory=inventory)
+        # GET request - show form
+        shops = Shop.query.all()
+        shop_inventory = {}
+        for shop in shops:
+            inventory = Inventory.query.filter_by(
+                product_id=product.id,
+                shop_id=shop.id
+            ).first()
+            shop_inventory[shop.id] = inventory.quantity if inventory else 0
+            
+        return render_template('admin/edit_product.html',
+                             product=product,
+                             shops=shops,
+                             shop_inventory=shop_inventory)
+    except Exception as e:
+        app.logger.error(f"Error in edit_product: {str(e)}")
+        flash('Error updating product. Please try again.', 'error')
+        return redirect(url_for('admin.manage_products'))
 
 @admin_bp.route('/products/<int:product_id>/delete', methods=['POST'])
 @login_required

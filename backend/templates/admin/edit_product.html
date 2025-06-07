@@ -15,7 +15,7 @@
             Edit Product Details
         </div>
         <div class="card-body">
-            <form method="POST" action="{{ url_for('admin.edit_product', product_id=product.id) }}">
+            <form method="POST">
                 <div class="row mb-3">
                     <div class="col-md-6">
                         <div class="form-group">
@@ -50,45 +50,34 @@
                     </div>
                 </div>
 
-                <div class="row mb-3">
-                    <div class="col-12">
-                        <div class="form-group">
-                            <label for="description" class="form-label">Description</label>
-                            <textarea class="form-control" id="description" name="description" 
-                                      rows="3">{{ product.description }}</textarea>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="card mb-4">
                     <div class="card-header" style="background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%); color: white;">
                         <i class="fas fa-store me-1"></i>
                         Shop Inventory
                     </div>
                     <div class="card-body">
-                        <div class="row">
-                            {% for shop in shops %}
-                            <div class="col-md-4 mb-3">
-                                <div class="form-check">
-                                    <input class="form-check-input shop-selector" type="checkbox" 
-                                           name="shops" value="{{ shop.id }}" 
-                                           id="shop{{ shop.id }}"
-                                           {% if shop.id in inventory %}checked{% endif %}>
-                                    <label class="form-check-label" for="shop{{ shop.id }}">
-                                        {{ shop.name }}
-                                    </label>
-                                </div>
-                                <div class="input-group mt-2">
-                                    <span class="input-group-text">Qty</span>
-                                    <input type="number" class="form-control quantity-input" 
-                                           name="quantity_{{ shop.id }}" 
-                                           id="quantity_{{ shop.id }}" 
-                                           min="0" 
-                                           value="{{ inventory.get(shop.id, 0) }}"
-                                           {% if shop.id not in inventory %}disabled{% endif %}>
-                                </div>
-                            </div>
-                            {% endfor %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Shop</th>
+                                        <th>Quantity</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for shop in shops %}
+                                    <tr>
+                                        <td>{{ shop.name }}</td>
+                                        <td>
+                                            <input type="number" class="form-control" 
+                                                   name="quantity_{{ shop.id }}" 
+                                                   value="{{ shop_inventory.get(shop.id, 0) }}" 
+                                                   min="0" required>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
