@@ -2980,18 +2980,25 @@ def manage_products():
         shops = Shop.query.all()
         
         for product in all_products:
-            shop_inventory = {}
-            for shop in shops:
-                inventory = Inventory.query.filter_by(
-                    product_id=product.id,
-                    shop_id=shop.id
-                ).first()
-                shop_inventory[shop.id] = inventory.quantity if inventory else 0
-            
-            products.append({
-                'product': product,
-                'shop_inventory': shop_inventory
-            })
+            try:
+                shop_inventory = {}
+                for shop in shops:
+                    inventory = Inventory.query.filter_by(
+                        product_id=product.id,
+                        shop_id=shop.id
+                    ).first()
+                    shop_inventory[shop.id] = inventory.quantity if inventory else 0
+                
+                products.append({
+                    'product': product,
+                    'shop_inventory': shop_inventory
+                })
+            except Exception as e:
+                app.logger.error(f"Error processing product {product.id}: {str(e)}")
+                continue
+        
+        if not products:
+            flash('No products found. Add your first product!', 'info')
         
         return render_template('admin/products.html', 
                              products=products,
