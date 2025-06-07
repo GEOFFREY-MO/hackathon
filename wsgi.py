@@ -9,10 +9,9 @@ from backend.config import config
 
 # Get the environment from environment variable, default to production
 env = os.environ.get('FLASK_ENV', 'production')
-app = create_app(config[env])
 
 # Initialize the app with the configuration
-config[env].init_app(app)
+app = create_app(config[env])
 
 if __name__ == '__main__':
     app.run() 

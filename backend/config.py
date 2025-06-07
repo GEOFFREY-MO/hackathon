@@ -28,13 +28,13 @@ class DevelopmentConfig(Config):
         'sqlite:///' + os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dev.db')
 
 class ProductionConfig(Config):
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
-    
     @staticmethod
     def get_database_url():
         """Convert postgres:// to postgresql:// for SQLAlchemy compatibility"""
         url = os.environ.get('DATABASE_URL')
-        if url and url.startswith('postgres://'):
+        if not url:
+            raise ValueError("DATABASE_URL environment variable is not set")
+        if url.startswith('postgres://'):
             url = url.replace('postgres://', 'postgresql://', 1)
         return url
     
