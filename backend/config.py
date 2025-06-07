@@ -31,8 +31,8 @@ class ProductionConfig(Config):
     DEBUG = False
     
     # Handle PostgreSQL URL from Render
-    @classmethod
-    def get_database_url(cls):
+    @staticmethod
+    def get_database_url():
         database_url = os.environ.get('DATABASE_URL')
         if database_url:
             # Convert postgres:// to postgresql:// for SQLAlchemy
