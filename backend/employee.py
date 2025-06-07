@@ -1,12 +1,14 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
 from flask_login import login_required, current_user
-from backend.database.models import db, Shop, Product, Inventory, Sale, Service, ServiceSale, User, Resource, ShopResource, ResourceUpdate, Expense, ResourceAlert, ResourceHistory
+from database.models import db, Shop, Product, Inventory, Sale, Service, ServiceSale, User, Resource, ShopResource, ResourceUpdate, Expense, ResourceAlert, ResourceHistory
 from datetime import datetime, timedelta
 import logging
 from sqlalchemy import func
 import pandas as pd
 from io import BytesIO
 from werkzeug.utils import send_file
+import json
+from config import Config
 
 employee_bp = Blueprint('employee', __name__)
 
@@ -37,8 +39,7 @@ def dashboard():
         ).all()
 
         # Calculate today's totals
-        today_sales_total = sum(sale.price *
-                                sale.quantity for sale in today_sales)
+        today_sales_total = sum(sale.product.marked_price * sale.quantity for sale in today_sales)
         today_service_income = sum(sale.price for sale in today_service_sales)
         today_transactions = len(today_sales) + len(today_service_sales)
 
@@ -205,11 +206,10 @@ def new_sale():
         try:
             product_id = request.form.get('product_id', type=int)
             quantity = request.form.get('quantity', type=int)
-            price = request.form.get('price', type=float)
             customer_name = request.form.get('customer_name')
             payment_method = request.form.get('payment_method', 'cash')
 
-            if not all([product_id, quantity, price, payment_method]):
+            if not all([product_id, quantity, payment_method]):
                 flash('Please fill in all required fields', 'danger')
                 return redirect(url_for('employee.new_sale'))
 
@@ -236,7 +236,7 @@ def new_sale():
                 product_id=product_id,
                 shop_id=current_user.shop_id,
                 quantity=quantity,
-                price=price,
+                price=product.marked_price,
                 customer_name=customer_name,
                 payment_method=payment_method,
                 sale_date=datetime.now()
@@ -277,7 +277,7 @@ def sales_list():
         .all()
 
     # Calculate total sales and items
-    total_sales = sum(sale.price * sale.quantity for sale in sales)
+    total_sales = sum(sale.product.marked_price * sale.quantity for sale in sales)
     total_items = len(sales)
 
     return render_template('employee/sales.html',

@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, flash, Response, redirect, url_for, request, jsonify, send_file, current_app
 from flask_login import login_required, current_user
-from backend.database.models import Shop, Product, Inventory, User, db, Sale, Service, ServiceSale, Resource, ShopResource, Expense, ResourceHistory, ResourceAlert, ResourceCategory, ServiceCategory
+from database.models import Shop, Product, Inventory, User, db, Sale, Service, ServiceSale, Resource, ShopResource, Expense, ResourceHistory, ResourceAlert, ResourceCategory, ServiceCategory
 from io import StringIO
 import csv
 from datetime import datetime, timedelta
@@ -3044,13 +3044,14 @@ def add_product():
             db.session.commit()
             flash('Product added successfully!', 'success')
             return redirect(url_for('admin.manage_products'))
-        
-        shops = Shop.query.all()
-        return render_template('admin/add_product.html', shops=shops)
-    except Exception as e:
-        app.logger.error(f"Error in add_product: {str(e)}")
-        flash('Error adding product. Please try again.', 'error')
-        return redirect(url_for('admin.manage_products'))
+        except Exception as e:
+            app.logger.error(f"Error in add_product: {str(e)}")
+            flash('Error adding product. Please try again.', 'error')
+            return redirect(url_for('admin.manage_products'))
+    
+    # GET request - show form
+    shops = Shop.query.all()
+    return render_template('admin/add_product.html', shops=shops)
 
 @admin_bp.route('/products/<int:product_id>/edit', methods=['GET', 'POST'])
 @login_required
