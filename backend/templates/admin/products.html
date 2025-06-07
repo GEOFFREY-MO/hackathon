@@ -24,8 +24,9 @@
                     <thead style="background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%); color: white;">
                         <tr>
                             <th>Name</th>
+                            <th>Barcode</th>
                             <th>Category</th>
-                            <th>Price</th>
+                            <th>Price (KES)</th>
                             {% for shop in shops %}
                             <th>{{ shop.name }} Stock</th>
                             {% endfor %}
@@ -36,8 +37,9 @@
                         {% for item in products %}
                         <tr>
                             <td>{{ item.product.name }}</td>
+                            <td>{{ item.product.barcode }}</td>
                             <td>{{ item.product.category }}</td>
-                            <td>${{ "%.2f"|format(item.product.price) }}</td>
+                            <td>KES {{ "%.2f"|format(item.product.marked_price) }}</td>
                             {% for shop in shops %}
                             <td>{{ item.shop_inventory.get(shop.id, 0) }}</td>
                             {% endfor %}

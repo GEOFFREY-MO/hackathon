@@ -2973,29 +2973,32 @@ def get_detailed_sales():
 @login_required
 @admin_required
 def manage_products():
-    """Show product management page with list of all products."""
     try:
         # Get all products with their inventory across shops
-        products = Product.query.all()
+        products = []
+        all_products = Product.query.all()
         shops = Shop.query.all()
         
-        # Get inventory data for each product
-        product_data = []
-        for product in products:
-            inventory = Inventory.query.filter_by(product_id=product.id).all()
-            shop_inventory = {inv.shop_id: inv.quantity for inv in inventory}
+        for product in all_products:
+            shop_inventory = {}
+            for shop in shops:
+                inventory = Inventory.query.filter_by(
+                    product_id=product.id,
+                    shop_id=shop.id
+                ).first()
+                shop_inventory[shop.id] = inventory.quantity if inventory else 0
             
-            product_data.append({
+            products.append({
                 'product': product,
                 'shop_inventory': shop_inventory
             })
         
         return render_template('admin/products.html', 
-                             products=product_data,
+                             products=products,
                              shops=shops)
     except Exception as e:
-        logger.error(f"Error in manage_products: {str(e)}")
-        flash('Error loading products. Please try again.', 'danger')
+        app.logger.error(f"Error loading products: {str(e)}")
+        flash('Error loading products. Please try again.', 'error')
         return redirect(url_for('admin.dashboard'))
 
 @admin_bp.route('/products/add', methods=['GET', 'POST'])
