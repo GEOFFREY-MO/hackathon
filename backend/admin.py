@@ -52,12 +52,12 @@ def dashboard():
             flash('Database connection error. Please try again.', 'danger')
             return redirect(url_for('auth.select_role'))
 
-        # Initialize default values
+        # Initialize all variables with default values
         stats = {
-            'total_sales': 0,
+            'total_sales': 0.0,
             'total_items': 0,
             'total_transactions': 0,
-            'average_sale': 0,
+            'average_sale': 0.0,
             'total_shops': 0,
             'active_shops': 0,
             'total_users': 0,
@@ -68,7 +68,8 @@ def dashboard():
             'active_services': 0
         }
 
-        shops = []
+        # Initialize all lists
+        all_shops = []
         recent_sales = []
         low_stock_items = []
         active_services = []
@@ -88,7 +89,6 @@ def dashboard():
         except Exception as e:
             logger.error(f"Error getting shop statistics: {str(e)}")
             flash('Error loading shop data. Some statistics may be incomplete.', 'warning')
-            all_shops = []
 
         # Get user statistics with error handling
         try:
@@ -186,10 +186,17 @@ def dashboard():
             logger.info(f"Found {len(sales)} sales records")
 
             # Calculate statistics
-            stats['total_sales'] = sum(sale.quantity * sale.price for sale in sales)
-            stats['total_items'] = sum(sale.quantity for sale in sales)
-            stats['total_transactions'] = len(sales)
-            stats['average_sale'] = stats['total_sales'] / stats['total_transactions'] if stats['total_transactions'] > 0 else 0
+            total_sales = sum(sale.quantity * sale.price for sale in sales)
+            total_items = sum(sale.quantity for sale in sales)
+            total_transactions = len(sales)
+            
+            # Update stats dictionary
+            stats.update({
+                'total_sales': total_sales,
+                'total_items': total_items,
+                'total_transactions': total_transactions,
+                'average_sale': total_sales / total_transactions if total_transactions > 0 else 0.0
+            })
 
             # Get recent sales
             recent_sales = query.order_by(Sale.sale_date.desc()).limit(5).all()
@@ -199,16 +206,18 @@ def dashboard():
             logger.error(f"Error getting sales data: {str(e)}")
             flash('Error loading sales data. Some statistics may be incomplete.', 'warning')
 
-        return render_template(
-            'admin/dashboard.html',
-            stats=stats,
-            shops=all_shops,
-            recent_sales=recent_sales,
-            low_stock_items=low_stock_items,
-            active_services=active_services,
-            service_categories=service_categories,
-            period=period
-        )
+        # Ensure all required variables are defined before rendering
+        template_data = {
+            'stats': stats,
+            'shops': all_shops,
+            'recent_sales': recent_sales,
+            'low_stock_items': low_stock_items,
+            'active_services': active_services,
+            'service_categories': service_categories,
+            'period': period
+        }
+
+        return render_template('admin/dashboard.html', **template_data)
 
     except Exception as e:
         logger.error(f"Unexpected error in dashboard: {str(e)}")
