@@ -3153,3 +3153,64 @@ def get_service(service_id):
         return jsonify({
             'error': str(e)
         }), 500
+
+@admin_bp.route('/services/categories/<int:category_id>/edit', methods=['POST'])
+@login_required
+@admin_required
+def edit_service_category(category_id):
+    """Edit a service category."""
+    try:
+        category = ServiceCategory.query.get_or_404(category_id)
+        
+        name = request.form.get('name')
+        description = request.form.get('description')
+        
+        if not name:
+            return jsonify({
+                'success': False,
+                'message': 'Category name is required'
+            }), 400
+        
+        # Check if name is already taken by another category
+        existing = ServiceCategory.query.filter(
+            ServiceCategory.name == name,
+            ServiceCategory.id != category_id
+        ).first()
+        
+        if existing:
+            return jsonify({
+                'success': False,
+                'message': 'A category with this name already exists'
+            }), 400
+        
+        category.name = name
+        category.description = description
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Category updated successfully'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Error updating category: {str(e)}'
+        }), 500
+
+@admin_bp.route('/services/categories/<int:category_id>')
+@login_required
+@admin_required
+def get_service_category(category_id):
+    """Get service category details for editing."""
+    try:
+        category = ServiceCategory.query.get_or_404(category_id)
+        return jsonify({
+            'id': category.id,
+            'name': category.name,
+            'description': category.description
+        })
+    except Exception as e:
+        return jsonify({
+            'error': str(e)
+        }), 500
