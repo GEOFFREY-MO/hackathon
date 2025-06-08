@@ -1366,6 +1366,9 @@ def accounts():
             'expenses': 0  # Will be updated below
         }
 
+        # Calculate grand total
+        totals['grand_total'] = totals['cash'] + totals['till'] + totals['bank'] - totals['expenses']
+
         # Get today's expenses
         today_expenses = Expense.query.filter(
             Expense.shop_id == shop.id,
@@ -1375,6 +1378,9 @@ def accounts():
 
         # Calculate total expenses
         totals['expenses'] = sum(float(expense.amount) for expense in today_expenses)
+
+        # Recalculate grand total after expenses
+        totals['grand_total'] = totals['cash'] + totals['till'] + totals['bank'] - totals['expenses']
 
         # Get historical data (last 30 days)
         start_date = today - timedelta(days=30)
