@@ -74,13 +74,20 @@ class Sale(db.Model):
     shop_id = db.Column(db.Integer, db.ForeignKey('shop.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
-    price = db.Column(db.Float, nullable=False)
     customer_name = db.Column(db.String(100), nullable=True)
     payment_method = db.Column(db.String(20), nullable=False, default='cash')  # cash, till, bank
     sale_date = db.Column(db.DateTime, default=datetime.utcnow)
 
     shop = db.relationship('Shop', backref=db.backref('sales', lazy=True))
     product = db.relationship('Product', backref=db.backref('sales', lazy=True))
+
+    @property
+    def price(self):
+        return self.product.marked_price
+
+    @property
+    def total(self):
+        return self.price * self.quantity
 
     def __repr__(self):
         return f'<Sale {self.id}>'
@@ -258,6 +265,25 @@ class ResourceCategory(db.Model):
     
     def __repr__(self):
         return f'<ResourceCategory {self.name}>'
+
+class FinancialRecord(db.Model):
+    """Model for tracking financial transactions."""
+    __tablename__ = 'financial_record'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    shop_id = db.Column(db.Integer, db.ForeignKey('shop.id'), nullable=False)
+    type = db.Column(db.String(20), nullable=False)  # cash, till, bank
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    description = db.Column(db.Text)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Relationships
+    shop = db.relationship('Shop', backref=db.backref('financial_records', lazy=True))
+    creator = db.relationship('User', backref=db.backref('created_financial_records', lazy=True))
+    
+    def __repr__(self):
+        return f'<FinancialRecord {self.id}: {self.type} {self.amount}>'
 
 # Event listeners for resource tracking
 @event.listens_for(ShopResource, 'after_update')
