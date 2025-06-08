@@ -130,6 +130,25 @@ class Service(db.Model):
     def __repr__(self):
         return f'<Service {self.name}>'
 
+class FinancialRecord(db.Model):
+    """Model for tracking financial transactions."""
+    __tablename__ = 'financial_record'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    shop_id = db.Column(db.Integer, db.ForeignKey('shop.id'), nullable=False)
+    type = db.Column(db.String(20), nullable=False)  # cash, till, bank
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    description = db.Column(db.Text)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Relationships
+    shop = db.relationship('Shop', backref=db.backref('financial_records', lazy=True))
+    creator = db.relationship('User', backref=db.backref('created_financial_records', lazy=True))
+    
+    def __repr__(self):
+        return f'<FinancialRecord {self.id}: {self.type} {self.amount}>'
+
 # Event listeners for resource tracking
 @event.listens_for(ShopResource, 'after_update')
 def track_resource_changes(mapper, connection, target):

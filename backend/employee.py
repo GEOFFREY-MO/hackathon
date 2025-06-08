@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
 from flask_login import login_required, current_user
-from backend.database.models import db, Shop, Product, Inventory, Sale, Service, ServiceSale, User, Resource, ShopResource, ResourceUpdate, Expense, ResourceAlert, ResourceHistory, ServiceCategory
+from backend.database.models import db, Shop, Product, Inventory, Sale, Service, ServiceSale, User, Resource, ShopResource, ResourceUpdate, Expense, ResourceAlert, ResourceHistory, ServiceCategory, FinancialRecord
 from datetime import datetime, timedelta
 import logging
 from sqlalchemy import func
@@ -9,6 +9,7 @@ from io import BytesIO
 from werkzeug.utils import send_file
 import json
 from backend.config import Config
+from decimal import Decimal
 
 employee_bp = Blueprint('employee', __name__)
 
@@ -945,11 +946,10 @@ def get_today_performance_insights():
 @login_required
 def services():
     try:
-        # Get services for the current shop
-        services = Service.query.filter_by(
-            shop_id=current_user.shop_id, is_active=True).all()
+        # Get all active services
+        services = Service.query.filter_by(is_active=True).all()
         
-        # Get service categories
+        # Get all service categories
         categories = ServiceCategory.query.all()
         
         # Get service sales for the current shop
@@ -1342,148 +1342,85 @@ def export_resources():
 @login_required
 def accounts():
     try:
-        # Get shop for the current user
+        # Get the shop associated with the current user
         shop = Shop.query.get(current_user.shop_id)
         if not shop:
-            current_app.logger.error(f"No shop found for user {current_user.id}")
-            flash('Shop not found', 'error')
+            flash('No shop found for this user.', 'error')
             return redirect(url_for('employee.dashboard'))
 
         # Get today's date
         today = datetime.now().date()
-        current_app.logger.info(f"Processing accounts for shop {shop.id} on {today}")
 
-        # Initialize totals
+        # Get financial records for today
+        today_records = FinancialRecord.query.filter(
+            FinancialRecord.shop_id == shop.id,
+            FinancialRecord.date >= today,
+            FinancialRecord.date < today + timedelta(days=1)
+        ).all()
+
+        # Calculate totals
         totals = {
-            'cash': 0.0,
-            'till': 0.0,
-            'bank': 0.0,
-            'expenses': 0.0,
-            'grand_total': 0.0
+            'cash': sum(float(record.amount) for record in today_records if record.type == 'cash'),
+            'till': sum(float(record.amount) for record in today_records if record.type == 'till'),
+            'bank': sum(float(record.amount) for record in today_records if record.type == 'bank'),
+            'expenses': 0  # Will be updated below
         }
 
-        try:
-            # Get today's expenses and sales in a single query
-            today_expenses = Expense.query.filter(
-                Expense.shop_id == shop.id,
-                func.date(Expense.date) == today
-            ).order_by(Expense.date.desc()).all()
+        # Get today's expenses
+        today_expenses = Expense.query.filter(
+            Expense.shop_id == shop.id,
+            Expense.date >= today,
+            Expense.date < today + timedelta(days=1)
+        ).all()
 
-            today_sales = Sale.query.filter(
-                Sale.shop_id == shop.id,
-                func.date(Sale.sale_date) == today
-            ).all()
+        # Calculate total expenses
+        totals['expenses'] = sum(float(expense.amount) for expense in today_expenses)
 
-            current_app.logger.info(f"Found {len(today_expenses)} expenses and {len(today_sales)} sales for today")
+        # Get historical data (last 30 days)
+        start_date = today - timedelta(days=30)
+        historical_records = FinancialRecord.query.filter(
+            FinancialRecord.shop_id == shop.id,
+            FinancialRecord.date >= start_date,
+            FinancialRecord.date < today + timedelta(days=1)
+        ).all()
 
-            # Process expenses
-            for expense in today_expenses:
-                try:
-                    totals['expenses'] += float(expense.amount or 0)
-                except (ValueError, TypeError) as e:
-                    current_app.logger.error(f"Error converting expense amount: {str(e)}")
-                    continue
+        # Get historical expenses
+        historical_expenses = Expense.query.filter(
+            Expense.shop_id == shop.id,
+            Expense.date >= start_date,
+            Expense.date < today + timedelta(days=1)
+        ).all()
 
-            # Process sales
-            for sale in today_sales:
-                try:
-                    sale_total = float(sale.price or 0) * \
-                        float(sale.quantity or 0)
-                    if sale.payment_method == 'cash':
-                        totals['cash'] += sale_total
-                    elif sale.payment_method == 'till':
-                        totals['till'] += sale_total
-                    elif sale.payment_method == 'bank':
-                        totals['bank'] += sale_total
-                except (ValueError, TypeError) as e:
-                    current_app.logger.error(f"Error calculating sale total: {str(e)}")
-                    continue
-
-            # Calculate grand total
-            totals['grand_total'] = totals['cash'] + \
-                totals['till'] + totals['bank'] - totals['expenses']
-            current_app.logger.info(f"Calculated totals: {totals}")
-
-        except Exception as e:
-            current_app.logger.error(f"Error processing today's data: {str(e)}", exc_info=True)
-            flash('Error processing today\'s financial data', 'error')
-            today_expenses = []
-
-        try:
-            # Get historical data for the last 30 days using a single query
-            thirty_days_ago = today - timedelta(days=30)
-
-            # Get all sales and expenses for the period
-            historical_sales = Sale.query.filter(
-                Sale.shop_id == shop.id,
-                func.date(Sale.sale_date).between(thirty_days_ago, today)
-            ).all()
-
-            historical_expenses = Expense.query.filter(
-                Expense.shop_id == shop.id,
-                func.date(Expense.date).between(thirty_days_ago, today)
-            ).all()
-
-            # Group data by date
-            daily_data = {}
-            for i in range(31):  # Include today
-                date = today - timedelta(days=i)
-                daily_data[date] = {
-                    'date': date,
-                    'cash': 0.0,
-                    'till': 0.0,
-                    'bank': 0.0,
-                    'expenses': 0.0,
-                    'grand_total': 0.0
+        # Process historical data
+        daily_data = {}
+        for record in historical_records:
+            record_date = record.date.date()
+            if record_date not in daily_data:
+                daily_data[record_date] = {
+                    'cash': 0,
+                    'till': 0,
+                    'bank': 0,
+                    'expenses': 0
                 }
+            daily_data[record_date][record.type] += float(record.amount or 0)
 
-            # Process historical sales
-            for sale in historical_sales:
-                try:
-                    sale_date = sale.sale_date.date()
-                    if sale_date in daily_data:
-                        sale_total = float(sale.price or 0) * \
-                            float(sale.quantity or 0)
-                        if sale.payment_method == 'cash':
-                            daily_data[sale_date]['cash'] += sale_total
-                        elif sale.payment_method == 'till':
-                            daily_data[sale_date]['till'] += sale_total
-                        elif sale.payment_method == 'bank':
-                            daily_data[sale_date]['bank'] += sale_total
-                except (ValueError, TypeError) as e:
-                    current_app.logger.error(f"Error calculating historical sale total: {str(e)}")
-                    continue
+        # Process historical expenses
+        for expense in historical_expenses:
+            expense_date = expense.date.date()
+            if expense_date in daily_data:
+                daily_data[expense_date]['expenses'] += float(expense.amount or 0)
 
-            # Process historical expenses
-            for expense in historical_expenses:
-                try:
-                    expense_date = expense.date.date()
-                    if expense_date in daily_data:
-                        daily_data[expense_date]['expenses'] += float(
-                            expense.amount or 0)
-                except (ValueError, TypeError) as e:
-                    current_app.logger.error(f"Error calculating historical expense amount: {str(e)}")
-                    continue
-
-            # Calculate grand totals and convert to list
-            historical_data = []
-            for date in sorted(daily_data.keys(), reverse=True):
-                data = daily_data[date]
-                data['grand_total'] = data['cash'] + \
-                    data['till'] + data['bank'] - data['expenses']
-                historical_data.append(data)
-
-            current_app.logger.info(f"Processed historical data for {len(historical_data)} days")
-
-        except Exception as e:
-            current_app.logger.error(f"Error processing historical data: {str(e)}", exc_info=True)
-            flash('Error loading historical financial data', 'error')
-            historical_data = []
+        # Calculate grand totals and convert to list
+        historical_data = []
+        for date in sorted(daily_data.keys(), reverse=True):
+            data = daily_data[date]
+            data['grand_total'] = data['cash'] + data['till'] + data['bank'] - data['expenses']
+            historical_data.append(data)
 
         return render_template('employee/accounts.html',
-                               totals=totals,
-                               today_expenses=today_expenses,
-                               historical_data=historical_data)
+                            totals=totals,
+                            today_expenses=today_expenses,
+                            historical_data=historical_data)
 
     except Exception as e:
         current_app.logger.error(f"Error in accounts page: {str(e)}", exc_info=True)
