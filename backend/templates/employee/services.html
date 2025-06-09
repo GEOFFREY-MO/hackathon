@@ -205,19 +205,23 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Service Category</label>
-                        <select class="form-select" name="category" id="categorySelect" required onchange="updateServices()">
+                        <select class="form-select" name="category" id="categorySelect" required>
                             <option value="">Select a category</option>
                             {% for category in categories %}
-                            <option value="{{ category.name }}">{{ category.name }}</option>
+                            <option value="{{ category.id }}">{{ category.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Service</label>
-                        <select class="form-select" name="service_id" id="serviceSelect" required onchange="updatePrice()">
+                        <select class="form-select" name="service_id" id="serviceSelect" required>
                             <option value="">Select a service</option>
                             {% for service in services %}
-                            <option value="{{ service.id }}" data-price="{{ service.price }}" data-category="{{ service.category }}">{{ service.name }}</option>
+                            <option value="{{ service.id }}" 
+                                    data-price="{{ service.price }}" 
+                                    data-category="{{ service.category_id }}">
+                                {{ service.name }}
+                            </option>
                             {% endfor %}
                         </select>
                     </div>
@@ -463,40 +467,43 @@ document.addEventListener('DOMContentLoaded', function() {
     if (servicesLink) {
         servicesLink.classList.add('active');
     }
-});
 
-function updateServices() {
     const categorySelect = document.getElementById('categorySelect');
     const serviceSelect = document.getElementById('serviceSelect');
-    const selectedCategory = categorySelect.value;
-    
-    // Clear current options
-    serviceSelect.innerHTML = '<option value="">Select a service</option>';
-    
-    // Add filtered services
-    const services = Array.from(serviceSelect.options).slice(1);
-    services.forEach(service => {
-        if (service.dataset.category === selectedCategory) {
-            serviceSelect.appendChild(service.cloneNode(true));
+    const priceInput = document.getElementById('priceInput');
+
+    // Filter services when category changes
+    categorySelect.addEventListener('change', function() {
+        const selectedCategory = this.value;
+        const services = serviceSelect.options;
+        
+        // Reset service selection
+        serviceSelect.value = '';
+        priceInput.value = '';
+        
+        // Show/hide services based on category
+        for (let i = 0; i < services.length; i++) {
+            const service = services[i];
+            if (service.value === '') continue; // Skip the default option
+            
+            if (selectedCategory === '' || service.dataset.category === selectedCategory) {
+                service.style.display = '';
+            } else {
+                service.style.display = 'none';
+            }
         }
     });
-    
-    // Reset price
-    document.getElementById('priceInput').value = '';
-}
 
-function updatePrice() {
-    const serviceSelect = document.getElementById('serviceSelect');
-    const priceInput = document.getElementById('priceInput');
-    const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
-    
-    if (selectedOption.value) {
-        const price = selectedOption.dataset.price;
-        priceInput.value = price;
-    } else {
-        priceInput.value = '';
-    }
-}
+    // Update price when service is selected
+    serviceSelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        if (selectedOption.value) {
+            priceInput.value = selectedOption.dataset.price;
+        } else {
+            priceInput.value = '';
+        }
+    });
+});
 
 function updateServiceStatus(saleId, newStatus) {
     fetch(`/employee/services/${saleId}/update-status`, {
