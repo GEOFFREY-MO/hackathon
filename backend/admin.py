@@ -88,21 +88,17 @@ def dashboard():
         # Get recent sales
         recent_sales = Sale.query.order_by(Sale.sale_date.desc()).limit(5).all()
         
-        # Get sales by payment method
+        # Get sales by payment method (for all shops)
         sales_by_payment_method = db.session.query(
             Sale.payment_method,
             db.func.sum(Product.marked_price * Sale.quantity).label('total')
-        ).join(Product, Sale.product_id == Product.id).filter(
-            Sale.shop_id == current_user.shop_id
-        ).group_by(Sale.payment_method).all()
+        ).join(Product, Sale.product_id == Product.id).group_by(Sale.payment_method).all()
         
-        # Get sales by date
+        # Get sales by date (for all shops)
         sales_by_date = db.session.query(
             db.func.date(Sale.sale_date).label('date'),
             db.func.sum(Product.marked_price * Sale.quantity).label('total')
-        ).join(Product, Sale.product_id == Product.id).filter(
-            Sale.shop_id == current_user.shop_id
-        ).group_by(db.func.date(Sale.sale_date)).all()
+        ).join(Product, Sale.product_id == Product.id).group_by(db.func.date(Sale.sale_date)).all()
         
         return render_template('admin/dashboard.html',
                              shop_data=shop_data,
