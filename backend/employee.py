@@ -240,7 +240,6 @@ def new_sale():
                 product_id=product_id,
                 shop_id=current_user.shop_id,
                 quantity=quantity,
-                price=product.marked_price,
                 customer_name=customer_name,
                 payment_method=payment_method,
                 sale_date=datetime.now()
@@ -252,7 +251,8 @@ def new_sale():
                 type=payment_method,
                 amount=total_amount,
                 description=f'Sale of {quantity} {product.name}',
-                date=datetime.now()
+                date=datetime.now(),
+                created_by=current_user.id
             )
 
             # Update inventory
