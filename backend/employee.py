@@ -232,6 +232,9 @@ def new_sale():
                 flash('Not enough stock available', 'danger')
                 return redirect(url_for('employee.new_sale'))
 
+            # Calculate total amount
+            total_amount = product.marked_price * quantity
+
             # Create the sale
             sale = Sale(
                 product_id=product_id,
@@ -243,10 +246,21 @@ def new_sale():
                 sale_date=datetime.now()
             )
 
+            # Create financial record
+            financial_record = FinancialRecord(
+                shop_id=current_user.shop_id,
+                type=payment_method,
+                amount=total_amount,
+                description=f'Sale of {quantity} {product.name}',
+                date=datetime.now()
+            )
+
             # Update inventory
             inventory_item.quantity -= quantity
 
+            # Add records to session
             db.session.add(sale)
+            db.session.add(financial_record)
             db.session.commit()
 
             flash('Sale recorded successfully', 'success')
@@ -255,7 +269,7 @@ def new_sale():
         except Exception as e:
             db.session.rollback()
             flash('Error recording sale', 'danger')
-            current_app.logger.error(f"Error recording sale: {str(e)}")
+            current_app.logger.error(f"Error recording sale: {str(e)}", exc_info=True)
             return redirect(url_for('employee.new_sale'))
 
     # GET request - show the form
