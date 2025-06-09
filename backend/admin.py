@@ -40,191 +40,84 @@ def admin_required(f):
 
 @admin_bp.route('/dashboard')
 @login_required
-@admin_required
 def dashboard():
-    """Show admin dashboard with sales statistics and shop performance."""
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('main.index'))
+    
     try:
-        logger.info("Starting dashboard load")
-
-        # Verify database connection first
-        try:
-            db.session.execute(text('SELECT 1'))
-            logger.info("Database connection verified")
-        except Exception as e:
-            logger.error(f"Database connection failed: {str(e)}")
-            flash('Database connection error. Please try again.', 'danger')
-            return redirect(url_for('auth.select_role'))
-
-        # Initialize all variables with default values
-        total_sales = 0.0
-        total_items = 0
-        total_transactions = 0
-        average_sale = 0.0
-        total_shops = 0
-        active_shops = 0
-        total_users = 0
-        active_users = 0
+        # Get all shops
+        shops = Shop.query.all()
+        
+        # Initialize data structures
+        shop_data = {}
+        total_sales = 0
         total_products = 0
-        low_stock_count = 0
-        total_services = 0
-        active_services = 0
-
-        # Initialize all lists
-        all_shops = []
-        recent_sales = []
-        low_stock_items = []
-        active_services = []
-        service_categories = []
-
-        # Get period filter
-        period = request.args.get('period', 'today')
-        logger.info(f"Loading dashboard data for period: {period}")
-
-        # Get shop statistics with error handling
-        try:
-            logger.info("Fetching shop statistics")
-            all_shops = Shop.query.all()
-            total_shops = len(all_shops)
-            active_shops = total_shops
-            logger.info(f"Found {total_shops} shops")
-        except Exception as e:
-            logger.error(f"Error getting shop statistics: {str(e)}")
-            flash('Error loading shop data. Some statistics may be incomplete.', 'warning')
-
-        # Get user statistics with error handling
-        try:
-            logger.info("Fetching user statistics")
-            all_users = User.query.all()
-            total_users = len(all_users)
-            active_users = total_users
-            logger.info(f"Found {total_users} users")
-        except Exception as e:
-            logger.error(f"Error getting user statistics: {str(e)}")
-            flash('Error loading user data. Some statistics may be incomplete.', 'warning')
-
-        # Get product and inventory statistics with error handling
-        try:
-            logger.info("Fetching product statistics")
-            all_products = Product.query.all()
-            total_products = len(all_products)
-            logger.info(f"Found {total_products} products")
-
-            # Get inventory items with optimized query
-            logger.info("Fetching inventory data")
-            all_inventory = (
-                db.session.query(Inventory, Product, Shop)
-                .join(Product, Inventory.product_id == Product.id)
-                .join(Shop, Inventory.shop_id == Shop.id)
-                .all()
-            )
-            logger.info(f"Found {len(all_inventory)} inventory items")
-
-            # Calculate low stock items
-            for inv, product, shop in all_inventory:
-                if inv.quantity < 5:
-                    low_stock_items.append({
-                        'product_name': product.name,
-                        'shop_name': shop.name,
-                        'quantity': inv.quantity
-                    })
-            low_stock_count = len(low_stock_items)
-            logger.info(f"Found {low_stock_count} low stock items")
-
-        except Exception as e:
-            logger.error(f"Error getting product statistics: {str(e)}")
-            flash('Error loading product data. Some statistics may be incomplete.', 'warning')
-
-        # Get services data
-        try:
-            logger.info("Fetching services data")
-            active_services = Service.query.filter_by(is_active=True).limit(5).all()
-            total_services = Service.query.count()
-            active_services_count = Service.query.filter_by(is_active=True).count()
+        total_inventory = 0
+        total_employees = 0
+        
+        # Process each shop
+        for shop in shops:
+            # Get sales data
+            sales = Sale.query.filter_by(shop_id=shop.id).all()
+            shop_sales = sum(sale.total for sale in sales)
             
-            # Get service categories with counts using a subquery
-            service_categories = db.session.query(
-                ServiceCategory,
-                func.count(Service.id).label('service_count')
-            ).outerjoin(
-                Service,
-                Service.category == ServiceCategory.name
-            ).group_by(ServiceCategory.id).all()
+            # Get inventory data
+            inventory_items = Inventory.query.filter_by(shop_id=shop.id).all()
+            shop_inventory = sum(item.quantity for item in inventory_items)
             
-            logger.info(f"Found {len(active_services)} active services")
-        except Exception as e:
-            logger.error(f"Error getting services data: {str(e)}")
-            flash('Error loading services data. Some statistics may be incomplete.', 'warning')
-
-        # Get sales data with period filtering
-        try:
-            logger.info("Fetching sales data")
-            # Base query for all sales
-            query = Sale.query
-
-            # Apply period filter
-            end_date = datetime.utcnow()
-            if period == 'today':
-                start_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
-                query = query.filter(db.func.date(Sale.sale_date) == start_date.date())
-            elif period == 'week':
-                start_date = end_date - timedelta(days=7)
-                query = query.filter(Sale.sale_date >= start_date)
-            elif period == 'month':
-                start_date = end_date - timedelta(days=30)
-                query = query.filter(Sale.sale_date >= start_date)
-            elif period == 'year':
-                start_date = end_date.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-                query = query.filter(Sale.sale_date >= start_date)
-
-            logger.info(f"Date range: {start_date} to {end_date}")
-
-            # Get sales for the period with eager loading
-            sales = query.options(
-                db.joinedload(Sale.shop),
-                db.joinedload(Sale.product)
-            ).all()
-
-            logger.info(f"Found {len(sales)} sales records")
-
-            # Calculate statistics
-            total_sales = sum(sale.quantity * sale.price for sale in sales)
-            total_items = sum(sale.quantity for sale in sales)
-            total_transactions = len(sales)
-            average_sale = total_sales / total_transactions if total_transactions > 0 else 0.0
-
-            # Get recent sales
-            recent_sales = query.order_by(Sale.sale_date.desc()).limit(5).all()
-            logger.info(f"Found {len(recent_sales)} recent sales")
-
-        except Exception as e:
-            logger.error(f"Error getting sales data: {str(e)}")
-            flash('Error loading sales data. Some statistics may be incomplete.', 'warning')
-
-        # Pass all variables to the template
+            # Get employee count
+            employee_count = User.query.filter_by(shop_id=shop.id, role='employee').count()
+            
+            # Store shop data
+            shop_data[shop.id] = {
+                'name': shop.name,
+                'sales': shop_sales,
+                'inventory': shop_inventory,
+                'employees': employee_count
+            }
+            
+            # Update totals
+            total_sales += shop_sales
+            total_inventory += shop_inventory
+            total_employees += employee_count
+        
+        # Get total products
+        total_products = Product.query.count()
+        
+        # Get recent sales
+        recent_sales = Sale.query.order_by(Sale.sale_date.desc()).limit(5).all()
+        
+        # Get sales by payment method
+        sales_by_payment_method = db.session.query(
+            Sale.payment_method,
+            db.func.sum(Product.marked_price * Sale.quantity).label('total')
+        ).join(Product, Sale.product_id == Product.id).filter(
+            Sale.shop_id == current_user.shop_id
+        ).group_by(Sale.payment_method).all()
+        
+        # Get sales by date
+        sales_by_date = db.session.query(
+            db.func.date(Sale.sale_date).label('date'),
+            db.func.sum(Product.marked_price * Sale.quantity).label('total')
+        ).join(Product, Sale.product_id == Product.id).filter(
+            Sale.shop_id == current_user.shop_id
+        ).group_by(db.func.date(Sale.sale_date)).all()
+        
         return render_template('admin/dashboard.html',
-            total_sales=total_sales,
-            total_items=total_items,
-            total_transactions=total_transactions,
-            average_sale=average_sale,
-            total_shops=total_shops,
-            active_shops=active_shops,
-            total_users=total_users,
-            active_users=active_users,
-            total_products=total_products,
-            low_stock_count=low_stock_count,
-            total_services=total_services,
-            active_services=active_services,
-            shops=all_shops,
-            recent_sales=recent_sales,
-            low_stock_items=low_stock_items,
-            service_categories=service_categories,
-            period=period
-        )
-
+                             shop_data=shop_data,
+                             total_sales=total_sales,
+                             total_products=total_products,
+                             total_inventory=total_inventory,
+                             total_employees=total_employees,
+                             recent_sales=recent_sales,
+                             sales_by_payment_method=sales_by_payment_method,
+                             sales_by_date=sales_by_date)
+                             
     except Exception as e:
-        logger.error(f"Unexpected error in dashboard: {str(e)}")
-        flash('An unexpected error occurred. Please try again.', 'danger')
-        return redirect(url_for('auth.select_role'))
+        current_app.logger.error(f"Error in admin dashboard: {str(e)}", exc_info=True)
+        flash('Error loading dashboard data', 'danger')
+        return redirect(url_for('main.index'))
 
 
 @admin_bp.route('/dashboard/recent-sales')
@@ -570,11 +463,9 @@ def sales_report():
         elif period == 'month':
             start_date = end_date - timedelta(days=30)
         elif period == 'year':
-            start_date = end_date.replace(
-                month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+            start_date = end_date.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
         else:
-            start_date = end_date.replace(
-                hour=0, minute=0, second=0, microsecond=0)
+            start_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
 
         # Base query with eager loading
         query = Sale.query.join(Shop).join(Product).options(
