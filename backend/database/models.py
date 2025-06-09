@@ -99,12 +99,15 @@ class Service(db.Model):
     description = db.Column(db.Text)
     price = db.Column(db.Float, nullable=False)
     duration = db.Column(db.Integer)  # Duration in minutes
-    category = db.Column(db.String(50))
+    category_id = db.Column(db.Integer, db.ForeignKey('service_category.id'), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     shop_id = db.Column(db.Integer, db.ForeignKey('shop.id'), nullable=False)
+    
+    # Relationships
     shop = db.relationship('Shop', backref=db.backref('services', lazy=True))
+    category = db.relationship('ServiceCategory', backref=db.backref('services', lazy=True))
 
     def __repr__(self):
         return f'<Service {self.name}>'
