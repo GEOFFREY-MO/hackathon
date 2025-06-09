@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, flash, Response, redirect, url_for, request, jsonify, send_file, current_app
 from flask_login import login_required, current_user
-from backend.database.models import Shop, Product, Inventory, User, db, Sale, Service, ServiceSale, Resource, ShopResource, Expense, ResourceHistory, ResourceAlert, ResourceCategory, ServiceCategory
+from backend.database.models import Shop, Product, Inventory, User, db, Sale, Service, ServiceSale, Resource, ShopResource, Expense, ResourceHistory, ResourceAlert, ResourceCategory, ServiceCategory, FinancialRecord
 from io import StringIO
 import csv
 from datetime import datetime, timedelta
@@ -1801,23 +1801,11 @@ def accounts():
 
             # Process each day in the period
             while current_date <= end_date:
-                # Get sales for this day
-                sales_by_payment = db.session.query(
-                    Sale.payment_method,
-                    db.func.sum(Sale.price * Sale.quantity).label('total')
-                ).filter(
-                    Sale.shop_id == shop.id,
-                    db.func.date(Sale.sale_date) == current_date.date()
-                ).group_by(Sale.payment_method).all()
-
-                # Get service sales for this day
-                service_sales_by_payment = db.session.query(
-                    ServiceSale.payment_method,
-                    db.func.sum(ServiceSale.price).label('total')
-                ).filter(
-                    ServiceSale.shop_id == shop.id,
-                    db.func.date(ServiceSale.sale_date) == current_date.date()
-                ).group_by(ServiceSale.payment_method).all()
+                # Get financial records for this day
+                day_records = FinancialRecord.query.filter(
+                    FinancialRecord.shop_id == shop.id,
+                    db.func.date(FinancialRecord.date) == current_date.date()
+                ).all()
 
                 # Get expenses for this day
                 shop_expenses = Expense.query.filter(
@@ -1833,17 +1821,11 @@ def accounts():
                     'expenses': sum(Decimal(str(expense.amount)) for expense in shop_expenses)
                 }
 
-                # Calculate totals from product sales
-                for payment_method, total in sales_by_payment:
-                    if payment_method in day_totals:
-                        day_totals[payment_method] += Decimal(str(total))
-                        shop_totals[payment_method] += Decimal(str(total))
-
-                # Add service sales to totals
-                for payment_method, total in service_sales_by_payment:
-                    if payment_method in day_totals:
-                        day_totals[payment_method] += Decimal(str(total))
-                        shop_totals[payment_method] += Decimal(str(total))
+                # Calculate totals from financial records
+                for record in day_records:
+                    if record.type in day_totals:
+                        day_totals[record.type] += Decimal(str(record.amount or 0))
+                        shop_totals[record.type] += Decimal(str(record.amount or 0))
 
                 # Add expenses to shop total
                 shop_totals['expenses'] += day_totals['expenses']
@@ -1895,7 +1877,7 @@ def accounts():
                             overall_totals=overall_totals)
 
     except Exception as e:
-        logger.error(f"Error loading accounts page: {str(e)}")
+        logger.error(f"Error loading accounts page: {str(e)}", exc_info=True)
         flash('Error loading accounts page.', 'danger')
         return redirect(url_for('admin.dashboard'))
 
