@@ -41,7 +41,7 @@ def admin_required(f):
 @admin_bp.route('/dashboard')
 @login_required
 def dashboard():
-    if not current_user.is_admin:
+    if current_user.role != 'admin':
         flash('Access denied. Admin privileges required.', 'danger')
         return redirect(url_for('main.index'))
     
