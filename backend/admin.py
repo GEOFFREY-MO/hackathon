@@ -122,7 +122,7 @@ def dashboard():
     except Exception as e:
         current_app.logger.error(f"Error in admin dashboard: {str(e)}", exc_info=True)
         flash('Error loading dashboard data', 'danger')
-        return redirect(url_for('main.index'))
+        return redirect(url_for('auth.select_role'))
 
 
 @admin_bp.route('/dashboard/recent-sales')
