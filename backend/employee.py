@@ -960,30 +960,26 @@ def get_today_performance_insights():
 @login_required
 def services():
     try:
-        # Get all active services
-        services = Service.query.filter_by(is_active=True).all()
+        # Get all active services for the current shop
+        services = Service.query.filter_by(shop_id=current_user.shop_id, is_active=True).all()
         
         # Get all service categories
         categories = ServiceCategory.query.all()
         
-        # Get service sales for the current shop
-        service_sales = ServiceSale.query.filter_by(
-            shop_id=current_user.shop_id).order_by(
-            ServiceSale.sale_date.desc()).all()
+        # Get all service sales for the current shop
+        service_sales = ServiceSale.query.filter_by(shop_id=current_user.shop_id).order_by(ServiceSale.sale_date.desc()).all()
         
-        # Get employees for the current shop
-        employees = User.query.filter_by(
-            shop_id=current_user.shop_id,
-            role='employee').all()
-
+        # Get all employees for the current shop
+        employees = User.query.filter_by(shop_id=current_user.shop_id, role='employee').all()
+        
         return render_template('employee/services.html',
                              services=services,
                              categories=categories,
                              service_sales=service_sales,
                              employees=employees)
     except Exception as e:
-        logger.error(f"Error loading services: {str(e)}")
-        flash('Error loading services. Please try again.', 'error')
+        current_app.logger.error(f"Error in services route: {str(e)}")
+        flash('An error occurred while loading services.', 'error')
         return redirect(url_for('employee.dashboard'))
 
 
@@ -991,21 +987,17 @@ def services():
 @login_required
 def record_service_sale():
     try:
+        # Get form data
         service_id = request.form.get('service_id')
         customer_name = request.form.get('customer_name')
         employee_id = request.form.get('employee_id')
         price = request.form.get('price', type=float)
         notes = request.form.get('notes')
-        # Default to pending if not specified
         status = request.form.get('status', 'pending')
-        payment_method = request.form.get(
-            'payment_method', 'cash')  # Default to cash if not specified
+        payment_method = request.form.get('payment_method', 'cash')
 
-        if not all([service_id,
-                    customer_name,
-                    employee_id,
-                    price,
-                    payment_method]):
+        # Validate required fields
+        if not all([service_id, customer_name, employee_id, price, payment_method]):
             flash('Please fill in all required fields.', 'error')
             return redirect(url_for('employee.services'))
 
@@ -1015,8 +1007,17 @@ def record_service_sale():
             flash('Invalid payment method', 'error')
             return redirect(url_for('employee.services'))
 
+        # Get service and validate it belongs to the shop
         service = Service.query.get_or_404(service_id)
+        if service.shop_id != current_user.shop_id:
+            flash('Invalid service selected.', 'error')
+            return redirect(url_for('employee.services'))
+
+        # Get employee and validate they belong to the shop
         employee = User.query.get_or_404(employee_id)
+        if employee.shop_id != current_user.shop_id:
+            flash('Invalid employee selected.', 'error')
+            return redirect(url_for('employee.services'))
 
         # Create new service sale record
         service_sale = ServiceSale(
@@ -1031,14 +1032,24 @@ def record_service_sale():
             payment_method=payment_method
         )
 
+        # Create financial record for the sale
+        financial_record = FinancialRecord(
+            shop_id=current_user.shop_id,
+            type=payment_method,
+            amount=price,
+            description=f"Service sale: {service.name} for {customer_name}",
+            created_by=current_user.id
+        )
+
         db.session.add(service_sale)
+        db.session.add(financial_record)
         db.session.commit()
 
         flash('Service sale recorded successfully!', 'success')
         return redirect(url_for('employee.services'))
 
     except Exception as e:
-        logger.error(f"Error recording service sale: {str(e)}")
+        current_app.logger.error(f"Error recording service sale: {str(e)}")
         db.session.rollback()
         flash('Error recording service sale. Please try again.', 'error')
         return redirect(url_for('employee.services'))

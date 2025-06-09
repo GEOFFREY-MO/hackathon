@@ -495,6 +495,32 @@ document.addEventListener('DOMContentLoaded', function() {
             priceInput.value = '';
         }
     });
+
+    // Form submission handler
+    const form = document.getElementById('recordServiceForm');
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Validate required fields
+        const requiredFields = ['customer_name', 'service_id', 'employee_id', 'price', 'payment_method'];
+        let isValid = true;
+        
+        requiredFields.forEach(field => {
+            const input = form.querySelector(`[name="${field}"]`);
+            if (!input.value) {
+                isValid = false;
+                input.classList.add('is-invalid');
+            } else {
+                input.classList.remove('is-invalid');
+            }
+        });
+        
+        if (isValid) {
+            form.submit();
+        } else {
+            alert('Please fill in all required fields.');
+        }
+    });
 });
 
 function updateServiceStatus(saleId, newStatus) {
