@@ -1878,11 +1878,21 @@ def accounts():
                 'daily_breakdown': daily_breakdown
             })
 
+        # Calculate overall totals
+        overall_totals = {
+            'cash': sum(shop['cash'] for shop in shop_breakdown),
+            'till': sum(shop['till'] for shop in shop_breakdown),
+            'bank': sum(shop['bank'] for shop in shop_breakdown),
+            'expenses': sum(shop['expenses'] for shop in shop_breakdown)
+        }
+        overall_totals['total'] = overall_totals['cash'] + overall_totals['till'] + overall_totals['bank'] - overall_totals['expenses']
+
         return render_template('admin/accounts.html',
-                               shops=shops,
-                               period=period,
-                               selected_shop_id=selected_shop_id,
-                               shop_breakdown=shop_breakdown)
+                            shops=shops,
+                            period=period,
+                            selected_shop_id=selected_shop_id,
+                            shop_breakdown=shop_breakdown,
+                            overall_totals=overall_totals)
 
     except Exception as e:
         logger.error(f"Error loading accounts page: {str(e)}")
