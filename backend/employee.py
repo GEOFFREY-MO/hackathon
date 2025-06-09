@@ -1356,44 +1356,44 @@ def export_resources():
 @login_required
 def accounts():
     try:
-        # Get the shop associated with the current user
+        # Get shop for the current user
         shop = Shop.query.get(current_user.shop_id)
         if not shop:
-            flash('No shop found for this user.', 'error')
+            flash('Shop not found', 'error')
             return redirect(url_for('employee.dashboard'))
 
         # Get today's date
         today = datetime.now().date()
 
-        # Get financial records for today
+        # Get today's financial records
         today_records = FinancialRecord.query.filter(
             FinancialRecord.shop_id == shop.id,
-            FinancialRecord.date >= today,
-            FinancialRecord.date < today + timedelta(days=1)
+            func.date(FinancialRecord.date) == today
         ).all()
-
-        # Calculate totals
-        totals = {
-            'cash': sum(float(record.amount) for record in today_records if record.type == 'cash'),
-            'till': sum(float(record.amount) for record in today_records if record.type == 'till'),
-            'bank': sum(float(record.amount) for record in today_records if record.type == 'bank'),
-            'expenses': 0  # Will be updated below
-        }
-
-        # Calculate grand total
-        totals['grand_total'] = totals['cash'] + totals['till'] + totals['bank'] - totals['expenses']
 
         # Get today's expenses
         today_expenses = Expense.query.filter(
             Expense.shop_id == shop.id,
-            Expense.date >= today,
-            Expense.date < today + timedelta(days=1)
-        ).all()
+            func.date(Expense.date) == today
+        ).order_by(Expense.date.desc()).all()
 
-        # Calculate total expenses
-        totals['expenses'] = sum(float(expense.amount) for expense in today_expenses)
+        # Calculate today's totals
+        totals = {
+            'cash': 0,
+            'till': 0,
+            'bank': 0,
+            'expenses': 0
+        }
 
-        # Recalculate grand total after expenses
+        # Process today's records
+        for record in today_records:
+            totals[record.type] += float(record.amount or 0)
+
+        # Process today's expenses
+        for expense in today_expenses:
+            totals['expenses'] += float(expense.amount or 0)
+
+        # Calculate grand total
         totals['grand_total'] = totals['cash'] + totals['till'] + totals['bank'] - totals['expenses']
 
         # Get historical data (last 30 days)
@@ -1417,6 +1417,7 @@ def accounts():
             record_date = record.date.date()
             if record_date not in daily_data:
                 daily_data[record_date] = {
+                    'date': record_date,
                     'cash': 0,
                     'till': 0,
                     'bank': 0,
@@ -1435,6 +1436,7 @@ def accounts():
         for date in sorted(daily_data.keys(), reverse=True):
             data = daily_data[date]
             data['grand_total'] = data['cash'] + data['till'] + data['bank'] - data['expenses']
+            data['date'] = date.strftime('%Y-%m-%d')  # Convert date to string
             historical_data.append(data)
 
         return render_template('employee/accounts.html',
