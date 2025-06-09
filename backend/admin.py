@@ -40,11 +40,8 @@ def admin_required(f):
 
 @admin_bp.route('/dashboard')
 @login_required
+@admin_required
 def dashboard():
-    if current_user.role != 'admin':
-        flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('main.index'))
-    
     try:
         # Get all shops
         shops = Shop.query.all()
@@ -58,29 +55,33 @@ def dashboard():
         
         # Process each shop
         for shop in shops:
-            # Get sales data
-            sales = Sale.query.filter_by(shop_id=shop.id).all()
-            shop_sales = sum(sale.total for sale in sales)
-            
-            # Get inventory data
-            inventory_items = Inventory.query.filter_by(shop_id=shop.id).all()
-            shop_inventory = sum(item.quantity for item in inventory_items)
-            
-            # Get employee count
-            employee_count = User.query.filter_by(shop_id=shop.id, role='employee').count()
-            
-            # Store shop data
-            shop_data[shop.id] = {
-                'name': shop.name,
-                'sales': shop_sales,
-                'inventory': shop_inventory,
-                'employees': employee_count
-            }
-            
-            # Update totals
-            total_sales += shop_sales
-            total_inventory += shop_inventory
-            total_employees += employee_count
+            try:
+                # Get sales data
+                sales = Sale.query.filter_by(shop_id=shop.id).all()
+                shop_sales = sum(sale.total for sale in sales)
+                
+                # Get inventory data
+                inventory_items = Inventory.query.filter_by(shop_id=shop.id).all()
+                shop_inventory = sum(item.quantity for item in inventory_items)
+                
+                # Get employee count
+                employee_count = User.query.filter_by(shop_id=shop.id, role='employee').count()
+                
+                # Store shop data
+                shop_data[shop.id] = {
+                    'name': shop.name,
+                    'sales': shop_sales,
+                    'inventory': shop_inventory,
+                    'employees': employee_count
+                }
+                
+                # Update totals
+                total_sales += shop_sales
+                total_inventory += shop_inventory
+                total_employees += employee_count
+            except Exception as e:
+                current_app.logger.error(f"Error processing shop {shop.id}: {str(e)}", exc_info=True)
+                continue
         
         # Get total products
         total_products = Product.query.count()
@@ -89,16 +90,24 @@ def dashboard():
         recent_sales = Sale.query.order_by(Sale.sale_date.desc()).limit(5).all()
         
         # Get sales by payment method (for all shops)
-        sales_by_payment_method = db.session.query(
-            Sale.payment_method,
-            db.func.sum(Product.marked_price * Sale.quantity).label('total')
-        ).join(Product, Sale.product_id == Product.id).group_by(Sale.payment_method).all()
+        try:
+            sales_by_payment_method = db.session.query(
+                Sale.payment_method,
+                db.func.sum(Product.marked_price * Sale.quantity).label('total')
+            ).join(Product, Sale.product_id == Product.id).group_by(Sale.payment_method).all()
+        except Exception as e:
+            current_app.logger.error(f"Error getting sales by payment method: {str(e)}", exc_info=True)
+            sales_by_payment_method = []
         
         # Get sales by date (for all shops)
-        sales_by_date = db.session.query(
-            db.func.date(Sale.sale_date).label('date'),
-            db.func.sum(Product.marked_price * Sale.quantity).label('total')
-        ).join(Product, Sale.product_id == Product.id).group_by(db.func.date(Sale.sale_date)).all()
+        try:
+            sales_by_date = db.session.query(
+                db.func.date(Sale.sale_date).label('date'),
+                db.func.sum(Product.marked_price * Sale.quantity).label('total')
+            ).join(Product, Sale.product_id == Product.id).group_by(db.func.date(Sale.sale_date)).all()
+        except Exception as e:
+            current_app.logger.error(f"Error getting sales by date: {str(e)}", exc_info=True)
+            sales_by_date = []
         
         return render_template('admin/dashboard.html',
                              shop_data=shop_data,
