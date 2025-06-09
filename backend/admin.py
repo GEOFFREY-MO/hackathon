@@ -52,6 +52,7 @@ def dashboard():
         total_products = 0
         total_inventory = 0
         total_employees = 0
+        total_sale_count = 0
         
         # Process each shop
         for shop in shops:
@@ -59,6 +60,7 @@ def dashboard():
                 # Get sales data
                 sales = Sale.query.filter_by(shop_id=shop.id).all()
                 shop_sales = sum(sale.total for sale in sales)
+                total_sale_count += len(sales)
                 
                 # Get inventory data
                 inventory_items = Inventory.query.filter_by(shop_id=shop.id).all()
@@ -109,6 +111,9 @@ def dashboard():
             current_app.logger.error(f"Error getting sales by date: {str(e)}", exc_info=True)
             sales_by_date = []
         
+        # Calculate average sale
+        average_sale = total_sales / total_sale_count if total_sale_count > 0 else 0
+        
         return render_template('admin/dashboard.html',
                              shop_data=shop_data,
                              total_sales=total_sales,
@@ -117,7 +122,8 @@ def dashboard():
                              total_employees=total_employees,
                              recent_sales=recent_sales,
                              sales_by_payment_method=sales_by_payment_method,
-                             sales_by_date=sales_by_date)
+                             sales_by_date=sales_by_date,
+                             average_sale=average_sale)
                              
     except Exception as e:
         current_app.logger.error(f"Error in admin dashboard: {str(e)}", exc_info=True)
