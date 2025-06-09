@@ -224,7 +224,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Shop</label>
-                        <select class="form-select" name="shop_id">
+                        <select class="form-select" name="shop_id" id="adminShopSelect">
                             <option value="">Select a shop</option>
                             {% for shop in shops %}
                             <option value="{{ shop.id }}">{{ shop.name }}</option>
@@ -328,7 +328,6 @@ function editService(serviceId) {
             form.querySelector('[name="category"]').value = service.category;
             form.querySelector('[name="shop_id"]').value = service.shop_id;
             form.querySelector('[name="is_active"]').checked = service.is_active;
-            
             // Show the modal
             const modal = new bootstrap.Modal(document.getElementById('editServiceModal'));
             modal.show();
@@ -360,12 +359,15 @@ function deleteService(serviceId) {
 }
 
 // Handle apply to all shops checkbox
-document.getElementById('applyToAllShops').addEventListener('change', function() {
-    const shopSelect = document.querySelector('#addServiceForm select[name="shop_id"]');
-    shopSelect.disabled = this.checked;
-    if (this.checked) {
-        shopSelect.value = '';
-    }
-});
+const applyToAllShops = document.getElementById('applyToAllShops');
+if (applyToAllShops) {
+    applyToAllShops.addEventListener('change', function() {
+        const shopSelect = document.getElementById('adminShopSelect');
+        shopSelect.disabled = this.checked;
+        if (this.checked) {
+            shopSelect.value = '';
+        }
+    });
+}
 </script>
 {% endblock %} 
