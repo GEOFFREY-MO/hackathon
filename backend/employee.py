@@ -646,11 +646,18 @@ def analytics_data():
         if period == 'today':
             start_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
         elif period == 'week':
-            start_date = end_date - timedelta(days=7)
+            # Get the start of the current week (Monday)
+            start_date = end_date - timedelta(days=end_date.weekday())
+            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
         elif period == 'month':
+            # Get the start of the current month
             start_date = end_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         else:
             start_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Format dates for SQLite
+        start_date_str = start_date.strftime('%Y-%m-%d %H:%M:%S')
+        end_date_str = end_date.strftime('%Y-%m-%d %H:%M:%S')
         
         # Get top products by revenue using a subquery
         top_products = db.session.execute(text("""
@@ -663,8 +670,8 @@ def analytics_data():
                 FROM product p
                 JOIN sale s ON p.id = s.product_id
                 WHERE s.shop_id = :shop_id 
-                AND s.sale_date >= :start_date
-                AND s.sale_date <= :end_date
+                AND datetime(s.sale_date) >= datetime(:start_date)
+                AND datetime(s.sale_date) <= datetime(:end_date)
             )
             SELECT 
                 name as product_name,
@@ -676,8 +683,8 @@ def analytics_data():
             LIMIT 5
         """), {
             'shop_id': shop_id,
-            'start_date': start_date,
-            'end_date': end_date
+            'start_date': start_date_str,
+            'end_date': end_date_str
         }).fetchall()
         
         # Get top services by revenue
@@ -689,15 +696,15 @@ def analytics_data():
             FROM service s
             JOIN service_rendered sr ON s.id = sr.service_id
             WHERE sr.shop_id = :shop_id 
-            AND sr.rendered_at >= :start_date
-            AND sr.rendered_at <= :end_date
+            AND datetime(sr.rendered_at) >= datetime(:start_date)
+            AND datetime(sr.rendered_at) <= datetime(:end_date)
             GROUP BY s.name
             ORDER BY revenue DESC
             LIMIT 5
         """), {
             'shop_id': shop_id,
-            'start_date': start_date,
-            'end_date': end_date
+            'start_date': start_date_str,
+            'end_date': end_date_str
         }).fetchall()
         
         # Get sales trend
@@ -711,8 +718,8 @@ def analytics_data():
                 FROM sale s
                 JOIN product p ON s.product_id = p.id
                 WHERE s.shop_id = :shop_id 
-                AND s.sale_date >= :start_date
-                AND s.sale_date <= :end_date
+                AND datetime(s.sale_date) >= datetime(:start_date)
+                AND datetime(s.sale_date) <= datetime(:end_date)
             )
             SELECT 
                 date,
@@ -723,8 +730,8 @@ def analytics_data():
             ORDER BY date
         """), {
             'shop_id': shop_id,
-            'start_date': start_date,
-            'end_date': end_date
+            'start_date': start_date_str,
+            'end_date': end_date_str
         }).fetchall()
         
         return jsonify({
