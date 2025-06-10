@@ -215,10 +215,10 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Category</label>
-                        <select class="form-select" name="category" required>
+                        <select class="form-select" name="category_id" required>
                             <option value="">Select a category</option>
                             {% for category in categories %}
-                            <option value="{{ category.name }}">{{ category.name }}</option>
+                            <option value="{{ category.id }}">{{ category.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -277,10 +277,10 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Category</label>
-                        <select class="form-select" name="category" required>
+                        <select class="form-select" name="category_id" required>
                             <option value="">Select a category</option>
                             {% for category in categories %}
-                            <option value="{{ category.name }}">{{ category.name }}</option>
+                            <option value="{{ category.id }}">{{ category.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -325,7 +325,7 @@ function editService(serviceId) {
             form.querySelector('[name="description"]').value = service.description;
             form.querySelector('[name="price"]').value = service.price;
             form.querySelector('[name="duration"]').value = service.duration;
-            form.querySelector('[name="category"]').value = service.category;
+            form.querySelector('[name="category_id"]').value = service.category_id;
             form.querySelector('[name="shop_id"]').value = service.shop_id;
             form.querySelector('[name="is_active"]').checked = service.is_active;
             // Show the modal

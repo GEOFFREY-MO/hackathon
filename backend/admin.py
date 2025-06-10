@@ -1156,17 +1156,20 @@ def add_service():
             description = request.form.get('description')
             price = request.form.get('price')
             duration = request.form.get('duration')
-            category = request.form.get('category')
+            category_id = request.form.get('category_id')
             shop_id = request.form.get('shop_id')
             apply_to_all_shops = request.form.get('apply_to_all_shops') == 'on'
 
-            if not all([name, price]):
-                flash('Name and price are required.', 'danger')
+            if not all([name, price, category_id]):
+                flash('Name, price, and category are required.', 'danger')
                 return redirect(url_for('admin.manage_services'))
 
             if not apply_to_all_shops and not shop_id:
                 flash('Please select a shop or apply to all shops.', 'danger')
                 return redirect(url_for('admin.manage_services'))
+
+            # Get the category
+            category = ServiceCategory.query.get_or_404(category_id)
 
             if apply_to_all_shops:
                 # Get all shops
@@ -1177,7 +1180,7 @@ def add_service():
                         description=description,
                         price=float(price),
                         duration=int(duration) if duration else None,
-                        category=category,
+                        category=category.name,
                         shop_id=shop.id
                     )
                     db.session.add(service)
@@ -1187,7 +1190,7 @@ def add_service():
                     description=description,
                     price=float(price),
                     duration=int(duration) if duration else None,
-                    category=category,
+                    category=category.name,
                     shop_id=shop_id
                 )
                 db.session.add(service)
@@ -1201,7 +1204,8 @@ def add_service():
             flash('Error adding service.', 'danger')
 
     shops = Shop.query.all()
-    return render_template('admin/add_service.html', shops=shops)
+    categories = ServiceCategory.query.all()
+    return render_template('admin/add_service.html', shops=shops, categories=categories)
 
 
 @admin_bp.route('/services/<int:service_id>/edit', methods=['GET', 'POST'])
