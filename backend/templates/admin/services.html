@@ -22,25 +22,15 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for service in services %}
-                                {% set shop_ids = service.shop_ids.split(',')|map('int')|list %}
-                                {% if shop.id in shop_ids %}
+                                {% for service in services if service.shop_id == shop.id %}
                                 <tr>
+                                    <td>{{ service.name }}</td>
                                     <td>
-                                        <div class="d-flex flex-column">
-                                            <span class="fw-bold">{{ service.name }}</span>
-                                            <small class="text-muted">{{ service.category }}</small>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        {% if service.is_active %}
-                                        <span class="badge bg-success">Active</span>
-                                        {% else %}
-                                        <span class="badge bg-danger">Inactive</span>
-                                        {% endif %}
+                                        <span class="badge bg-{{ 'success' if service.is_active else 'danger' }}">
+                                            {{ 'Active' if service.is_active else 'Inactive' }}
+                                        </span>
                                     </td>
                                 </tr>
-                                {% endif %}
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -132,13 +122,12 @@
                                 <table class="table table-hover">
                                     <thead>
                                         <tr>
-                                            <th>Date & Time</th>
+                                            <th>Date</th>
                                             <th>Customer</th>
                                             <th>Service</th>
-                                            <th>Provider</th>
-                                            <th>Shop</th>
-                                            <th>Amount</th>
+                                            <th>Price</th>
                                             <th>Status</th>
+                                            <th>Payment Method</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -147,24 +136,13 @@
                                             <td>{{ sale.sale_date.strftime('%Y-%m-%d %H:%M') }}</td>
                                             <td>{{ sale.customer_name }}</td>
                                             <td>{{ sale.service.name }}</td>
-                                            <td>{{ sale.employee.name }}</td>
-                                            <td>{{ sale.shop.name }}</td>
                                             <td>KES {{ "%.2f"|format(sale.price) }}</td>
                                             <td>
-                                                {% if sale.status == 'completed' %}
-                                                    <span class="badge bg-success">Completed</span>
-                                                {% elif sale.status == 'pending' %}
-                                                    <span class="badge bg-warning">Pending</span>
-                                                {% elif sale.status == 'cancelled' %}
-                                                    <span class="badge bg-danger">Cancelled</span>
-                                                {% else %}
-                                                    <span class="badge bg-secondary">{{ sale.status }}</span>
-                                                {% endif %}
+                                                <span class="badge bg-{{ 'success' if sale.status == 'completed' else 'warning' if sale.status == 'active' else 'danger' }}">
+                                                    {{ sale.status }}
+                                                </span>
                                             </td>
-                                        </tr>
-                                        {% else %}
-                                        <tr>
-                                            <td colspan="7" class="text-center">No service sales recorded yet.</td>
+                                            <td>{{ sale.payment_method }}</td>
                                         </tr>
                                         {% endfor %}
                                     </tbody>
@@ -301,17 +279,15 @@
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block scripts %}
 <script>
 function editService(serviceId) {
     // Fetch service details and populate the edit form
-    fetch(`/services/${serviceId}`)
+    fetch(`/admin/services/${serviceId}`)
         .then(response => response.json())
         .then(service => {
             const form = document.getElementById('editServiceForm');
-            form.action = `/services/${serviceId}/edit`;
+            form.action = `/admin/services/${serviceId}/edit`;
             form.querySelector('[name="name"]').value = service.name;
             form.querySelector('[name="description"]').value = service.description;
             form.querySelector('[name="price"]').value = service.price;
@@ -331,7 +307,7 @@ function editService(serviceId) {
 
 function deleteService(serviceId) {
     if (confirm('Are you sure you want to delete this service?')) {
-        fetch(`/services/${serviceId}/delete`, {
+        fetch(`/admin/services/${serviceId}/delete`, {
             method: 'POST'
         })
         .then(response => response.json())
@@ -351,9 +327,10 @@ function deleteService(serviceId) {
 
 // Handle apply to all shops checkbox
 const applyToAllShops = document.getElementById('applyToAllShops');
-if (applyToAllShops) {
+const shopSelect = document.getElementById('adminShopSelect');
+
+if (applyToAllShops && shopSelect) {
     applyToAllShops.addEventListener('change', function() {
-        const shopSelect = document.getElementById('adminShopSelect');
         shopSelect.disabled = this.checked;
         if (this.checked) {
             shopSelect.value = '';
