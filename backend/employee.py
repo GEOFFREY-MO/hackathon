@@ -552,12 +552,12 @@ def analytics():
         total_transactions = len(sales) + len(service_sales)
         average_transaction = total_sales / total_transactions if total_transactions > 0 else 0
 
-        # Get top products
+        # Get top products with proper price calculation
         top_products = db.session.query(
             Product.name,
             func.sum(Sale.quantity).label('units_sold'),
             func.sum(Sale.price * Sale.quantity).label('revenue')
-        ).join(Sale).filter(
+        ).join(Sale, Product.id == Sale.product_id).filter(
             Sale.shop_id == current_user.shop_id,
             func.date(Sale.sale_date) == today
         ).group_by(Product.name).order_by(desc('revenue')).limit(5).all()
@@ -567,7 +567,7 @@ def analytics():
             Service.name,
             func.count(ServiceSale.id).label('times_rendered'),
             func.sum(ServiceSale.price).label('revenue')
-        ).join(ServiceSale).filter(
+        ).join(ServiceSale, Service.id == ServiceSale.service_id).filter(
             ServiceSale.shop_id == current_user.shop_id,
             func.date(ServiceSale.sale_date) == today
         ).group_by(Service.name).order_by(desc('revenue')).limit(5).all()
