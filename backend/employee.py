@@ -558,7 +558,7 @@ def analytics():
                 SELECT 
                     p.name,
                     SUM(s.quantity) as units_sold,
-                    SUM(p.price * s.quantity) as revenue
+                    SUM(p.marked_price * s.quantity) as revenue
                 FROM product p
                 JOIN sale s ON p.id = s.product_id
                 WHERE s.shop_id = :shop_id 
