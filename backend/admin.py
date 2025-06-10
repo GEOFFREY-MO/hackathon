@@ -1049,7 +1049,7 @@ def manage_services():
     if current_user.role != 'admin':
         return redirect(url_for('auth.select_role'))
 
-    # Get services with their categories
+    # Get services with their categories and shops
     services = db.session.query(
         Service.id,
         Service.name,
@@ -1058,10 +1058,14 @@ def manage_services():
         Service.duration,
         Service.is_active,
         Service.shop_id,
-        ServiceCategory.name.label('category_name')
+        ServiceCategory.name.label('category_name'),
+        Shop.name.label('shop_name')
     ).join(
         ServiceCategory,
         Service.category_id == ServiceCategory.id
+    ).join(
+        Shop,
+        Service.shop_id == Shop.id
     ).all()
 
     # Get service sales history
@@ -1215,12 +1219,12 @@ def edit_service(service_id):
             description = request.form.get('description')
             price = request.form.get('price')
             duration = request.form.get('duration')
-            category = request.form.get('category')
+            category_id = request.form.get('category_id')
             shop_id = request.form.get('shop_id')
             is_active = request.form.get('is_active') == 'on'
 
-            if not all([name, price, shop_id]):
-                flash('Name, price, and shop are required.', 'danger')
+            if not all([name, price, category_id, shop_id]):
+                flash('Name, price, category, and shop are required.', 'danger')
                 return redirect(
                     url_for(
                         'admin.edit_service',
@@ -1230,7 +1234,7 @@ def edit_service(service_id):
             service.description = description
             service.price = float(price)
             service.duration = int(duration) if duration else None
-            service.category = category
+            service.category_id = category_id
             service.shop_id = shop_id
             service.is_active = is_active
 
@@ -1243,10 +1247,12 @@ def edit_service(service_id):
             flash('Error updating service.', 'danger')
 
     shops = Shop.query.all()
+    categories = ServiceCategory.query.all()
     return render_template(
         'admin/edit_service.html',
         service=service,
-        shops=shops)
+        shops=shops,
+        categories=categories)
 
 
 @admin_bp.route('/services/<int:service_id>/delete', methods=['POST'])

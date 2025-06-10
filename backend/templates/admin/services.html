@@ -92,7 +92,7 @@
                                             <th>Price</th>
                                             <th>Duration</th>
                                             <th>Category</th>
-                                            <th>Available In</th>
+                                            <th>Shop</th>
                                             <th>Status</th>
                                             <th>Actions</th>
                                         </tr>
@@ -105,7 +105,7 @@
                                             <td>KES {{ "%.2f"|format(service.price) }}</td>
                                             <td>{{ service.duration }} minutes</td>
                                             <td>{{ service.category_name }}</td>
-                                            <td>{{ service.shop.name }}</td>
+                                            <td>{{ service.shop_name }}</td>
                                             <td>
                                                 <span class="badge bg-{{ 'success' if service.is_active else 'danger' }}">
                                                     {{ 'Active' if service.is_active else 'Inactive' }}
