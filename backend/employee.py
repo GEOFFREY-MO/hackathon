@@ -552,17 +552,20 @@ def analytics():
         total_transactions = len(sales) + len(service_sales)
         average_transaction = total_sales / total_transactions if total_transactions > 0 else 0
 
-        # Get top products using raw SQL
+        # Get top products using a subquery for revenue calculation
         product_sales = db.session.execute("""
-            SELECT 
-                p.name,
-                SUM(s.quantity) as units_sold,
-                SUM(s.price * s.quantity) as revenue
-            FROM product p
-            JOIN sale s ON p.id = s.product_id
-            WHERE s.shop_id = :shop_id 
-            AND date(s.sale_date) = :today
-            GROUP BY p.name
+            WITH product_revenue AS (
+                SELECT 
+                    p.name,
+                    SUM(s.quantity) as units_sold,
+                    SUM(s.price * s.quantity) as revenue
+                FROM product p
+                JOIN sale s ON p.id = s.product_id
+                WHERE s.shop_id = :shop_id 
+                AND date(s.sale_date) = :today
+                GROUP BY p.name
+            )
+            SELECT * FROM product_revenue
             ORDER BY revenue DESC
             LIMIT 5
         """, {
