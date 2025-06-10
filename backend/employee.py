@@ -3,13 +3,14 @@ from flask_login import login_required, current_user
 from backend.database.models import db, Shop, Product, Inventory, Sale, Service, ServiceSale, User, Resource, ShopResource, ResourceUpdate, Expense, ResourceAlert, ResourceHistory, ServiceCategory, FinancialRecord
 from datetime import datetime, timedelta
 import logging
-from sqlalchemy import func
+from sqlalchemy import func, desc
 import pandas as pd
 from io import BytesIO
 from werkzeug.utils import send_file
 import json
 from backend.config import Config
 from decimal import Decimal
+import xlsxwriter
 
 employee_bp = Blueprint('employee', __name__)
 
@@ -535,13 +536,13 @@ def analytics():
         # Get sales data
         sales = Sale.query.filter(
             Sale.shop_id == current_user.shop_id,
-            db.func.date(Sale.sale_date) == today
+            func.date(Sale.sale_date) == today
         ).all()
 
         # Get service sales data
         service_sales = ServiceSale.query.filter(
             ServiceSale.shop_id == current_user.shop_id,
-            db.func.date(ServiceSale.sale_date) == today
+            func.date(ServiceSale.sale_date) == today
         ).all()
 
         # Calculate totals
@@ -555,22 +556,22 @@ def analytics():
         # Get top products
         top_products = db.session.query(
             Product.name,
-            db.func.sum(Sale.quantity).label('units_sold'),
-            db.func.sum(Sale.price * Sale.quantity).label('revenue')
+            func.sum(Sale.quantity).label('units_sold'),
+            func.sum(Sale.price * Sale.quantity).label('revenue')
         ).join(Sale).filter(
             Sale.shop_id == current_user.shop_id,
-            db.func.date(Sale.sale_date) == today
-        ).group_by(Product.name).order_by(db.desc('revenue')).limit(5).all()
+            func.date(Sale.sale_date) == today
+        ).group_by(Product.name).order_by(desc('revenue')).limit(5).all()
 
         # Get top services
         top_services = db.session.query(
             Service.name,
-            db.func.count(ServiceSale.id).label('times_rendered'),
-            db.func.sum(ServiceSale.price).label('revenue')
+            func.count(ServiceSale.id).label('times_rendered'),
+            func.sum(ServiceSale.price).label('revenue')
         ).join(ServiceSale).filter(
             ServiceSale.shop_id == current_user.shop_id,
-            db.func.date(ServiceSale.sale_date) == today
-        ).group_by(Service.name).order_by(db.desc('revenue')).limit(5).all()
+            func.date(ServiceSale.sale_date) == today
+        ).group_by(Service.name).order_by(desc('revenue')).limit(5).all()
 
         # Prepare sales trend data
         sales_trend = {
@@ -580,11 +581,11 @@ def analytics():
 
         # Prepare payment methods data
         payment_methods = {
-            'labels': ['Cash', 'Till', 'Bank'],
+            'labels': ['Cash', 'M-Pesa', 'Card'],
             'data': [
                 sum(sale.price * sale.quantity for sale in sales if sale.payment_method == 'cash'),
-                sum(sale.price * sale.quantity for sale in sales if sale.payment_method == 'till'),
-                sum(sale.price * sale.quantity for sale in sales if sale.payment_method == 'bank')
+                sum(sale.price * sale.quantity for sale in sales if sale.payment_method == 'mpesa'),
+                sum(sale.price * sale.quantity for sale in sales if sale.payment_method == 'card')
             ]
         }
 
@@ -675,60 +676,38 @@ def analytics_data():
         # Get top products
         top_products = db.session.query(
             Product.name,
-            db.func.sum(Sale.quantity).label('units_sold'),
-            db.func.sum(Sale.price * Sale.quantity).label('revenue')
+            func.sum(Sale.quantity).label('units_sold'),
+            func.sum(Sale.price * Sale.quantity).label('revenue')
         ).join(Sale).filter(
             Sale.shop_id == current_user.shop_id,
             Sale.sale_date >= start_date,
             Sale.sale_date <= end_date
-        ).group_by(Product.name).order_by(db.desc('revenue')).limit(5).all()
+        ).group_by(Product.name).order_by(desc('revenue')).limit(5).all()
 
         # Get top services
         top_services = db.session.query(
             Service.name,
-            db.func.count(ServiceSale.id).label('times_rendered'),
-            db.func.sum(ServiceSale.price).label('revenue')
+            func.count(ServiceSale.id).label('times_rendered'),
+            func.sum(ServiceSale.price).label('revenue')
         ).join(ServiceSale).filter(
             ServiceSale.shop_id == current_user.shop_id,
             ServiceSale.sale_date >= start_date,
             ServiceSale.sale_date <= end_date
-        ).group_by(Service.name).order_by(db.desc('revenue')).limit(5).all()
+        ).group_by(Service.name).order_by(desc('revenue')).limit(5).all()
 
         # Prepare sales trend data
-        sales_by_date = {}
-        current_date = start_date
-        while current_date <= end_date:
-            if period == 'today':
-                key = current_date.strftime(date_format)
-            else:
-                key = current_date.strftime(date_format)
-            sales_by_date[key] = 0
-            if period == 'today':
-                # 30-minute intervals for today
-                current_date += timedelta(minutes=30)
-            else:
-                current_date += timedelta(days=1)
-
-        for sale in sales:
-            if period == 'today':
-                key = sale.sale_date.strftime(date_format)
-            else:
-                key = sale.sale_date.strftime(date_format)
-            if key in sales_by_date:
-                sales_by_date[key] += sale.price * sale.quantity
-
         sales_trend = {
-            'labels': list(sales_by_date.keys()),
-            'data': list(sales_by_date.values())
+            'labels': [sale.sale_date.strftime(date_format) for sale in sales],
+            'data': [sale.price * sale.quantity for sale in sales]
         }
 
         # Prepare payment methods data
         payment_methods = {
-            'labels': ['Cash', 'Till', 'Bank'],
+            'labels': ['Cash', 'M-Pesa', 'Card'],
             'data': [
                 sum(sale.price * sale.quantity for sale in sales if sale.payment_method == 'cash'),
-                sum(sale.price * sale.quantity for sale in sales if sale.payment_method == 'till'),
-                sum(sale.price * sale.quantity for sale in sales if sale.payment_method == 'bank')
+                sum(sale.price * sale.quantity for sale in sales if sale.payment_method == 'mpesa'),
+                sum(sale.price * sale.quantity for sale in sales if sale.payment_method == 'card')
             ]
         }
 
