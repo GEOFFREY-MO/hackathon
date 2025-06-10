@@ -1476,12 +1476,12 @@ def get_accounts_data():
 
         logger.info(f"Date range: {start_date} to {end_date}")
 
-        # Get financial records for the period
+        # Get financial records for the period using raw SQL
         records = db.session.execute(text("""
             SELECT 
                 date(date) as date,
                 type,
-                SUM(amount) as total_amount
+                COALESCE(SUM(amount), 0) as total_amount
             FROM financial_record
             WHERE shop_id = :shop_id
             AND date(date) >= :start_date
@@ -1493,12 +1493,12 @@ def get_accounts_data():
             'end_date': end_date
         }).fetchall()
 
-        # Get expenses for the period
+        # Get expenses for the period using raw SQL
         expenses = db.session.execute(text("""
             SELECT 
                 date(date) as date,
                 description,
-                amount,
+                COALESCE(amount, 0) as amount,
                 category
             FROM expense
             WHERE shop_id = :shop_id
@@ -1524,13 +1524,13 @@ def get_accounts_data():
                     'expenses': 0,
                     'grand_total': 0
                 }
-            daily_data[date_str][record.type] = float(record.total_amount or 0)
+            daily_data[date_str][record.type] = float(record.total_amount)
 
         # Process expenses
         for expense in expenses:
             date_str = expense.date.strftime('%Y-%m-%d')
             if date_str in daily_data:
-                daily_data[date_str]['expenses'] += float(expense.amount or 0)
+                daily_data[date_str]['expenses'] += float(expense.amount)
 
         # Calculate grand totals and convert to list
         accounts_data = []
@@ -1552,7 +1552,7 @@ def get_accounts_data():
         expenses_data = [{
             'date': expense.date.strftime('%Y-%m-%d'),
             'description': expense.description,
-            'amount': float(expense.amount or 0),
+            'amount': float(expense.amount),
             'category': expense.category
         } for expense in expenses]
 
