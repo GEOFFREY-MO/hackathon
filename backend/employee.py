@@ -552,24 +552,30 @@ def analytics():
         total_transactions = len(sales) + len(service_sales)
         average_transaction = total_sales / total_transactions if total_transactions > 0 else 0
 
-        # Get top products with proper price calculation
-        top_products = db.session.query(
-            Product.name,
-            func.sum(Sale.quantity).label('units_sold'),
-            func.sum(Sale.price * Sale.quantity).label('revenue')
-        ).select_from(Product).join(
-            Sale, Product.id == Sale.product_id
-        ).filter(
-            Sale.shop_id == current_user.shop_id,
-            func.date(Sale.sale_date) == today
-        ).group_by(Product.name).order_by(desc('revenue')).limit(5).all()
+        # Get top products using raw SQL
+        product_sales = db.session.execute("""
+            SELECT 
+                p.name,
+                SUM(s.quantity) as units_sold,
+                SUM(s.price * s.quantity) as revenue
+            FROM product p
+            JOIN sale s ON p.id = s.product_id
+            WHERE s.shop_id = :shop_id 
+            AND date(s.sale_date) = :today
+            GROUP BY p.name
+            ORDER BY revenue DESC
+            LIMIT 5
+        """, {
+            'shop_id': current_user.shop_id,
+            'today': today
+        }).fetchall()
 
         # Get top services with proper price calculation
-        top_services = db.session.query(
+        service_sales = db.session.query(
             Service.name,
             func.count(ServiceSale.id).label('times_rendered'),
             func.sum(ServiceSale.price).label('revenue')
-        ).select_from(Service).join(
+        ).join(
             ServiceSale, Service.id == ServiceSale.service_id
         ).filter(
             ServiceSale.shop_id == current_user.shop_id,
@@ -612,8 +618,8 @@ def analytics():
                             total_products_sold=total_products_sold,
                             total_services_rendered=total_services_rendered,
                             average_transaction=average_transaction,
-                            top_products=top_products,
-                            top_services=top_services,
+                            top_products=product_sales,
+                            top_services=service_sales,
                             sales_trend=sales_trend,
                             payment_methods=payment_methods,
                             stock_status=stock_status,
