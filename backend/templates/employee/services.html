@@ -524,13 +524,13 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function updateServiceStatus(saleId, newStatus) {
-    fetch(`{{ url_for('employee.update_service_status') }}`, {
+    const url = `/employee/services/${saleId}/update-status`;
+    fetch(url, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            sale_id: saleId,
             status: newStatus
         })
     })
@@ -539,7 +539,7 @@ function updateServiceStatus(saleId, newStatus) {
         if (data.success) {
             location.reload();
         } else {
-            alert('Error updating status: ' + data.error);
+            alert('Error updating status: ' + data.message);
         }
     })
     .catch(error => {
