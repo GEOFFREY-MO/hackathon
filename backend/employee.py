@@ -550,8 +550,7 @@ def analytics():
         total_products_sold = sum(sale.quantity for sale in sales)
         total_services_rendered = len(service_sales)
         total_transactions = len(sales) + len(service_sales)
-        average_transaction = total_sales / \
-            total_transactions if total_transactions > 0 else 0
+        average_transaction = total_sales / total_transactions if total_transactions > 0 else 0
 
         # Get top products
         top_products = db.session.query(
@@ -589,37 +588,32 @@ def analytics():
             ]
         }
 
-        # Get AI assistant insights
-        stock_status = get_stock_status_insights()
-        performance = get_today_performance_insights()
+        # Get stock status insights
+        low_stock_items = Inventory.query.filter(
+            Inventory.shop_id == current_user.shop_id,
+            Inventory.quantity < 10
+        ).count()
+        
+        stock_status = f"{low_stock_items} items are running low on stock" if low_stock_items > 0 else "All items are well stocked"
 
-        # Get resource status
-        resources = Resource.query.order_by(Resource.name).all()
-        shop_resources = {}
-        for resource in resources:
-            shop_resource = ShopResource.query.filter_by(
-                shop_id=current_user.shop_id,
-                resource_id=resource.id
-            ).first()
-            shop_resources[resource.id] = {
-                'quantity': shop_resource.quantity if shop_resource else 0,
-                'last_updated': shop_resource.last_updated if shop_resource else None
-            }
+        # Get performance insights
+        if total_sales > 0:
+            performance = f"Good performance with {total_transactions} transactions today"
+        else:
+            performance = "No sales recorded today"
 
         return render_template('employee/analytics.html',
-                               shop=shop,
-                               total_sales=total_sales,
-                               total_products_sold=total_products_sold,
-                               total_services_rendered=total_services_rendered,
-                               average_transaction=average_transaction,
-                               top_products=top_products,
-                               top_services=top_services,
-                               sales_trend=sales_trend,
-                               payment_methods=payment_methods,
-                               stock_status=stock_status,
-                               performance=performance,
-                               resources=resources,
-                               shop_resources=shop_resources)
+                            shop=shop,
+                            total_sales=total_sales,
+                            total_products_sold=total_products_sold,
+                            total_services_rendered=total_services_rendered,
+                            average_transaction=average_transaction,
+                            top_products=top_products,
+                            top_services=top_services,
+                            sales_trend=sales_trend,
+                            payment_methods=payment_methods,
+                            stock_status=stock_status,
+                            performance=performance)
 
     except Exception as e:
         logger.error(f"Error loading analytics: {str(e)}")
