@@ -103,22 +103,13 @@
                                             <td>{{ service.name }}</td>
                                             <td>{{ service.description }}</td>
                                             <td>KES {{ "%.2f"|format(service.price) }}</td>
-                                            <td>{{ service.duration }} mins</td>
-                                            <td>{{ service.category }}</td>
+                                            <td>{{ service.duration }} minutes</td>
+                                            <td>{{ service.category_name }}</td>
+                                            <td>{{ service.shop.name }}</td>
                                             <td>
-                                                {% set shop_count = service.shop_ids.split(',')|length %}
-                                                {% if shop_count == shops|length %}
-                                                    <span class="badge bg-success">All Shops</span>
-                                                {% else %}
-                                                    <span class="badge bg-info">{{ shop_count }} Shop(s)</span>
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                {% if service.is_active %}
-                                                <span class="badge bg-success">Active</span>
-                                                {% else %}
-                                                <span class="badge bg-danger">Inactive</span>
-                                                {% endif %}
+                                                <span class="badge bg-{{ 'success' if service.is_active else 'danger' }}">
+                                                    {{ 'Active' if service.is_active else 'Inactive' }}
+                                                </span>
                                             </td>
                                             <td>
                                                 <button class="btn btn-sm btn-primary" onclick="editService({{ service.id }})">

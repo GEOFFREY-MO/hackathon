@@ -1049,24 +1049,19 @@ def manage_services():
     if current_user.role != 'admin':
         return redirect(url_for('auth.select_role'))
 
-    # Get unique services by name
+    # Get services with their categories
     services = db.session.query(
+        Service.id,
         Service.name,
         Service.description,
         Service.price,
         Service.duration,
-        Service.category,
         Service.is_active,
-        db.func.group_concat(Service.shop_id).label('shop_ids'),
-        # Use the first service ID for actions
-        db.func.min(Service.id).label('id')
-    ).group_by(
-        Service.name,
-        Service.description,
-        Service.price,
-        Service.duration,
-        Service.category,
-        Service.is_active
+        Service.shop_id,
+        ServiceCategory.name.label('category_name')
+    ).join(
+        ServiceCategory,
+        Service.category_id == ServiceCategory.id
     ).all()
 
     # Get service sales history
@@ -1168,9 +1163,6 @@ def add_service():
                 flash('Please select a shop or apply to all shops.', 'danger')
                 return redirect(url_for('admin.manage_services'))
 
-            # Get the category
-            category = ServiceCategory.query.get_or_404(category_id)
-
             if apply_to_all_shops:
                 # Get all shops
                 shops = Shop.query.all()
@@ -1180,7 +1172,7 @@ def add_service():
                         description=description,
                         price=float(price),
                         duration=int(duration) if duration else None,
-                        category=category.name,
+                        category_id=category_id,
                         shop_id=shop.id
                     )
                     db.session.add(service)
@@ -1190,7 +1182,7 @@ def add_service():
                     description=description,
                     price=float(price),
                     duration=int(duration) if duration else None,
-                    category=category.name,
+                    category_id=category_id,
                     shop_id=shop_id
                 )
                 db.session.add(service)
