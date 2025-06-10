@@ -637,121 +637,104 @@ def analytics():
 @employee_bp.route('/analytics/data')
 @login_required
 def analytics_data():
-    """Provide analytics data for the employee's shop."""
-    if current_user.role != 'employee':
-        return jsonify({"error": "Unauthorized"}), 403
-
     try:
         period = request.args.get('period', 'today')
-
+        shop_id = current_user.shop_id
+        
         # Calculate date range based on period
         end_date = datetime.now()
         if period == 'today':
-            start_date = end_date.replace(
-                hour=0, minute=0, second=0, microsecond=0)
-            date_format = '%H:%M'
+            start_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
         elif period == 'week':
             start_date = end_date - timedelta(days=7)
-            date_format = '%Y-%m-%d'
-        else:  # month
-            start_date = end_date.replace(
-                day=1, hour=0, minute=0, second=0, microsecond=0)
-            date_format = '%Y-%m-%d'
-
-        # Get sales data for the period
-        sales = Sale.query.filter(
-            Sale.shop_id == current_user.shop_id,
-            Sale.sale_date >= start_date,
-            Sale.sale_date <= end_date
-        ).all()
-
-        # Get service sales data for the period
-        service_sales = ServiceSale.query.filter(
-            ServiceSale.shop_id == current_user.shop_id,
-            ServiceSale.sale_date >= start_date,
-            ServiceSale.sale_date <= end_date
-        ).all()
-
-        # Calculate totals
-        total_sales = sum(sale.price * sale.quantity for sale in sales)
-        total_products_sold = sum(sale.quantity for sale in sales)
-        total_services_rendered = len(service_sales)
-        total_transactions = len(sales) + len(service_sales)
-        average_transaction = total_sales / \
-            total_transactions if total_transactions > 0 else 0
-
-        # Get top products
-        top_products = db.session.query(
-            Product.name,
-            func.sum(Sale.quantity).label('units_sold'),
-            func.sum(Sale.price * Sale.quantity).label('revenue')
-        ).join(Sale).filter(
-            Sale.shop_id == current_user.shop_id,
-            Sale.sale_date >= start_date,
-            Sale.sale_date <= end_date
-        ).group_by(Product.name).order_by(desc('revenue')).limit(5).all()
-
-        # Get top services
-        top_services = db.session.query(
-            Service.name,
-            func.count(ServiceSale.id).label('times_rendered'),
-            func.sum(ServiceSale.price).label('revenue')
-        ).join(ServiceSale).filter(
-            ServiceSale.shop_id == current_user.shop_id,
-            ServiceSale.sale_date >= start_date,
-            ServiceSale.sale_date <= end_date
-        ).group_by(Service.name).order_by(desc('revenue')).limit(5).all()
-
-        # Prepare sales trend data
-        sales_trend = {
-            'labels': [sale.sale_date.strftime(date_format) for sale in sales],
-            'data': [sale.price * sale.quantity for sale in sales]
-        }
-
-        # Prepare payment methods data
-        payment_methods = {
-            'labels': ['Cash', 'M-Pesa', 'Card'],
-            'data': [
-                sum(sale.price * sale.quantity for sale in sales if sale.payment_method == 'cash'),
-                sum(sale.price * sale.quantity for sale in sales if sale.payment_method == 'mpesa'),
-                sum(sale.price * sale.quantity for sale in sales if sale.payment_method == 'card')
-            ]
-        }
-
-        # Format the response data
-        response_data = {
-            'total_sales': total_sales,
-            'total_products_sold': total_products_sold,
-            'total_services_rendered': total_services_rendered,
-            'average_transaction': average_transaction,
-            'top_products': [
-                {
-                    'name': product.name,
-                    'units_sold': int(product.units_sold),
-                    'revenue': float(product.revenue)
-                }
-                for product in top_products
-            ],
-            'top_services': [
-                {
-                    'name': service.name,
-                    'times_rendered': int(service.times_rendered),
-                    'revenue': float(service.revenue)
-                }
-                for service in top_services
-            ],
-            'sales_trend': sales_trend,
-            'payment_methods': payment_methods
-        }
-
-        return jsonify(response_data)
-
-    except Exception as e:
-        current_app.logger.error(f"Error generating analytics data: {str(e)}")
+        elif period == 'month':
+            start_date = end_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        else:
+            start_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Get top products by revenue using a subquery
+        top_products = db.session.execute(text("""
+            WITH product_sales AS (
+                SELECT 
+                    p.name,
+                    p.marked_price,
+                    s.quantity,
+                    (p.marked_price * s.quantity) as sale_revenue
+                FROM product p
+                JOIN sale s ON p.id = s.product_id
+                WHERE s.shop_id = :shop_id 
+                AND s.sale_date >= :start_date
+                AND s.sale_date <= :end_date
+            )
+            SELECT 
+                name as product_name,
+                SUM(quantity) as units_sold,
+                SUM(sale_revenue) as revenue
+            FROM product_sales
+            GROUP BY name
+            ORDER BY revenue DESC
+            LIMIT 5
+        """), {
+            'shop_id': shop_id,
+            'start_date': start_date,
+            'end_date': end_date
+        }).fetchall()
+        
+        # Get top services by revenue
+        top_services = db.session.execute(text("""
+            SELECT 
+                s.name as service_name,
+                COUNT(*) as times_rendered,
+                SUM(s.price) as revenue
+            FROM service s
+            JOIN service_rendered sr ON s.id = sr.service_id
+            WHERE sr.shop_id = :shop_id 
+            AND sr.rendered_at >= :start_date
+            AND sr.rendered_at <= :end_date
+            GROUP BY s.name
+            ORDER BY revenue DESC
+            LIMIT 5
+        """), {
+            'shop_id': shop_id,
+            'start_date': start_date,
+            'end_date': end_date
+        }).fetchall()
+        
+        # Get sales trend
+        sales_trend = db.session.execute(text("""
+            WITH daily_sales AS (
+                SELECT 
+                    date(s.sale_date) as date,
+                    p.marked_price,
+                    s.quantity,
+                    (p.marked_price * s.quantity) as sale_revenue
+                FROM sale s
+                JOIN product p ON s.product_id = p.id
+                WHERE s.shop_id = :shop_id 
+                AND s.sale_date >= :start_date
+                AND s.sale_date <= :end_date
+            )
+            SELECT 
+                date,
+                COUNT(*) as transactions,
+                SUM(sale_revenue) as revenue
+            FROM daily_sales
+            GROUP BY date
+            ORDER BY date
+        """), {
+            'shop_id': shop_id,
+            'start_date': start_date,
+            'end_date': end_date
+        }).fetchall()
+        
         return jsonify({
-            "error": "Failed to generate analytics data",
-            "details": str(e)
-        }), 500
+            'top_products': [dict(row) for row in top_products],
+            'top_services': [dict(row) for row in top_services],
+            'sales_trend': [dict(row) for row in sales_trend]
+        })
+    except Exception as e:
+        app.logger.error(f"Error generating analytics data: {str(e)}")
+        return jsonify({'error': 'Error generating analytics data'}), 500
 
 
 def process_employee_message(message):
