@@ -15,6 +15,7 @@ import xlsxwriter
 employee_bp = Blueprint('employee', __name__)
 
 # Configure logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -740,7 +741,7 @@ def analytics_data():
             'sales_trend': [dict(row) for row in sales_trend]
         })
     except Exception as e:
-        app.logger.error(f"Error generating analytics data: {str(e)}")
+        logger.error(f"Error generating analytics data: {str(e)}")
         return jsonify({'error': 'Error generating analytics data'}), 500
 
 
