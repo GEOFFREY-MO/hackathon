@@ -1443,12 +1443,12 @@ def accounts():
 def get_accounts_data():
     try:
         period = request.args.get('period', 'today')
-        current_app.logger.info(f"Processing accounts data request for period: {period}")
+        logger.info(f"Processing accounts data request for period: {period}")
 
         # Get shop for the current user
         shop = Shop.query.get(current_user.shop_id)
         if not shop:
-            current_app.logger.error(f"No shop found for user {current_user.id}")
+            logger.error(f"No shop found for user {current_user.id}")
             return jsonify({
                 'success': False,
                 'message': 'Shop not found'
@@ -1456,170 +1456,115 @@ def get_accounts_data():
 
         # Get date range based on period
         today = datetime.now().date()
-        try:
-            if period == 'today':
-                start_date = today
-                end_date = today
-            elif period == 'week':
-                start_date = today - timedelta(days=today.weekday())
-                end_date = today
-            elif period == 'month':
-                start_date = today.replace(day=1)
-                end_date = today
-            elif period == 'year':
-                start_date = today.replace(month=1, day=1)
-                end_date = today
-            else:
-                return jsonify({
-                    'success': False,
-                    'message': 'Invalid period'
-                }), 400
-        except Exception as e:
-            current_app.logger.error(f"Error calculating date range: {str(e)}", exc_info=True)
+        if period == 'today':
+            start_date = today
+            end_date = today
+        elif period == 'week':
+            start_date = today - timedelta(days=today.weekday())
+            end_date = today
+        elif period == 'month':
+            start_date = today.replace(day=1)
+            end_date = today
+        elif period == 'year':
+            start_date = today.replace(month=1, day=1)
+            end_date = today
+        else:
             return jsonify({
                 'success': False,
-                'message': 'Error calculating date range'
-            }), 500
+                'message': 'Invalid period'
+            }), 400
 
-        current_app.logger.info(f"Date range: {start_date} to {end_date}")
+        logger.info(f"Date range: {start_date} to {end_date}")
 
-        try:
-            # Get sales data
-            sales = Sale.query.filter(
-                Sale.shop_id == shop.id,
-                func.date(Sale.sale_date).between(start_date, end_date)
-            ).all()
-            current_app.logger.info(f"Found {len(sales)} sales records")
+        # Get financial records for the period
+        records = db.session.execute(text("""
+            SELECT 
+                date(date) as date,
+                type,
+                SUM(amount) as total_amount
+            FROM financial_record
+            WHERE shop_id = :shop_id
+            AND date(date) >= :start_date
+            AND date(date) <= :end_date
+            GROUP BY date(date), type
+        """), {
+            'shop_id': shop.id,
+            'start_date': start_date,
+            'end_date': end_date
+        }).fetchall()
 
-            # Get expenses data
-            expenses = Expense.query.filter(
-                Expense.shop_id == shop.id,
-                func.date(Expense.date).between(start_date, end_date)
-            ).order_by(Expense.date.desc()).all()
-            current_app.logger.info(f"Found {len(expenses)} expense records")
+        # Get expenses for the period
+        expenses = db.session.execute(text("""
+            SELECT 
+                date(date) as date,
+                description,
+                amount,
+                category
+            FROM expense
+            WHERE shop_id = :shop_id
+            AND date(date) >= :start_date
+            AND date(date) <= :end_date
+            ORDER BY date DESC
+        """), {
+            'shop_id': shop.id,
+            'start_date': start_date,
+            'end_date': end_date
+        }).fetchall()
 
-            # Initialize summary
-            summary = {
-                'cash': 0.0,
-                'till': 0.0,
-                'bank': 0.0,
-                'expenses': 0.0,
-                'grand_total': 0.0
-            }
+        # Process records into daily data
+        daily_data = {}
+        for record in records:
+            date_str = record.date.strftime('%Y-%m-%d')
+            if date_str not in daily_data:
+                daily_data[date_str] = {
+                    'date': date_str,
+                    'cash': 0,
+                    'till': 0,
+                    'bank': 0,
+                    'expenses': 0,
+                    'grand_total': 0
+                }
+            daily_data[date_str][record.type] = float(record.total_amount or 0)
 
-            # Process sales
-            for sale in sales:
-                try:
-                    sale_total = float(sale.price or 0) * \
-                        float(sale.quantity or 0)
-                    if sale.payment_method == 'cash':
-                        summary['cash'] += sale_total
-                    elif sale.payment_method == 'till':
-                        summary['till'] += sale_total
-                    elif sale.payment_method == 'bank':
-                        summary['bank'] += sale_total
-                except (ValueError, TypeError) as e:
-                    current_app.logger.error(f"Error processing sale {sale.id}: {str(e)}")
-                    continue
+        # Process expenses
+        for expense in expenses:
+            date_str = expense.date.strftime('%Y-%m-%d')
+            if date_str in daily_data:
+                daily_data[date_str]['expenses'] += float(expense.amount or 0)
 
-            # Process expenses
-            for expense in expenses:
-                try:
-                    summary['expenses'] += float(expense.amount or 0)
-                except (ValueError, TypeError) as e:
-                    current_app.logger.error(f"Error processing expense {expense.id}: {str(e)}")
-                    continue
+        # Calculate grand totals and convert to list
+        accounts_data = []
+        for date_str in sorted(daily_data.keys(), reverse=True):
+            data = daily_data[date_str]
+            data['grand_total'] = data['cash'] + data['till'] + data['bank'] - data['expenses']
+            accounts_data.append(data)
 
-            # Calculate grand total
-            summary['grand_total'] = summary['cash'] + \
-                summary['till'] + summary['bank'] - summary['expenses']
-            current_app.logger.info(f"Calculated summary: {summary}")
+        # Calculate summary totals
+        summary = {
+            'cash': sum(data['cash'] for data in accounts_data),
+            'till': sum(data['till'] for data in accounts_data),
+            'bank': sum(data['bank'] for data in accounts_data),
+            'expenses': sum(data['expenses'] for data in accounts_data)
+        }
+        summary['grand_total'] = summary['cash'] + summary['till'] + summary['bank'] - summary['expenses']
 
-            # Prepare accounts data
-            accounts_data = []
-            current_date = start_date
-            while current_date <= end_date:
-                try:
-                    day_data = {
-                        'date': current_date.strftime('%Y-%m-%d'),
-                        'cash': 0.0,
-                        'till': 0.0,
-                        'bank': 0.0,
-                        'expenses': 0.0,
-                        'grand_total': 0.0
-                    }
+        # Format expenses for response
+        expenses_data = [{
+            'date': expense.date.strftime('%Y-%m-%d'),
+            'description': expense.description,
+            'amount': float(expense.amount or 0),
+            'category': expense.category
+        } for expense in expenses]
 
-                    # Process day's sales
-                    day_sales = [
-                        s for s in sales if s.sale_date.date() == current_date]
-                    for sale in day_sales:
-                        try:
-                            sale_total = float(
-                                sale.price or 0) * float(sale.quantity or 0)
-                            if sale.payment_method == 'cash':
-                                day_data['cash'] += sale_total
-                            elif sale.payment_method == 'till':
-                                day_data['till'] += sale_total
-                            elif sale.payment_method == 'bank':
-                                day_data['bank'] += sale_total
-                        except (ValueError, TypeError) as e:
-                            current_app.logger.error(f"Error processing day sale {sale.id}: {str(e)}")
-                            continue
-
-                    # Process day's expenses
-                    day_expenses = [
-                        e for e in expenses if e.date.date() == current_date]
-                    for expense in day_expenses:
-                        try:
-                            day_data['expenses'] += float(expense.amount or 0)
-                        except (ValueError, TypeError) as e:
-                            current_app.logger.error(f"Error processing day expense {expense.id}: {str(e)}")
-                            continue
-
-                    # Calculate day's grand total
-                    day_data['grand_total'] = day_data['cash'] + \
-                        day_data['till'] + day_data['bank'] - \
-                        day_data['expenses']
-                    accounts_data.append(day_data)
-                except Exception as e:
-                    current_app.logger.error(f"Error processing data for date {current_date}: {str(e)}")
-                    continue
-
-                current_date += timedelta(days=1)
-
-            # Prepare expenses data
-            expenses_data = []
-            for expense in expenses:
-                try:
-                    expenses_data.append({
-                        'id': expense.id,
-                        'date': expense.date.strftime('%Y-%m-%d %H:%M'),
-                        'category': expense.category,
-                        'description': expense.description,
-                        'amount': float(expense.amount or 0)
-                    })
-                except (ValueError, TypeError) as e:
-                    current_app.logger.error(f"Error formatting expense {expense.id}: {str(e)}")
-                    continue
-
-            current_app.logger.info(f"Successfully processed {len(accounts_data)} days of data and {len(expenses_data)} expenses")
-
-            return jsonify({
-                'success': True,
-                'summary': summary,
-                'accounts': accounts_data,
-                'expenses': expenses_data
-            })
-
-        except Exception as e:
-            current_app.logger.error(f"Error processing financial data: {str(e)}", exc_info=True)
-            return jsonify({
-                'success': False,
-                'message': f'Error processing financial data: {str(e)}'
-            }), 500
+        return jsonify({
+            'success': True,
+            'summary': summary,
+            'accounts': accounts_data,
+            'expenses': expenses_data
+        })
 
     except Exception as e:
-        current_app.logger.error(f"Error in get_accounts_data: {str(e)}", exc_info=True)
+        logger.error(f"Error in get_accounts_data: {str(e)}", exc_info=True)
         return jsonify({
             'success': False,
             'message': f'An error occurred while fetching the data: {str(e)}'
