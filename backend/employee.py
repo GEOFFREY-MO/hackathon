@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from backend.database.models import db, Shop, Product, Inventory, Sale, Service, ServiceSale, User, Resource, ShopResource, ResourceUpdate, Expense, ResourceAlert, ResourceHistory, ServiceCategory, FinancialRecord
 from datetime import datetime, timedelta
 import logging
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, text
 import pandas as pd
 from io import BytesIO
 from werkzeug.utils import send_file
@@ -552,25 +552,25 @@ def analytics():
         total_transactions = len(sales) + len(service_sales)
         average_transaction = total_sales / total_transactions if total_transactions > 0 else 0
 
-        # Get top products using a subquery for revenue calculation
-        product_sales = db.session.execute("""
+        # Get top 5 products by revenue
+        top_products = db.session.execute(text("""
             WITH product_revenue AS (
                 SELECT 
                     p.name,
                     SUM(s.quantity) as units_sold,
-                    SUM(s.price * s.quantity) as revenue
+                    SUM(p.price * s.quantity) as revenue
                 FROM product p
                 JOIN sale s ON p.id = s.product_id
                 WHERE s.shop_id = :shop_id 
-                AND date(s.sale_date) = :today
+                AND date(s.sale_date) = :date
                 GROUP BY p.name
             )
             SELECT * FROM product_revenue
             ORDER BY revenue DESC
             LIMIT 5
-        """, {
+        """), {
             'shop_id': current_user.shop_id,
-            'today': today
+            'date': today
         }).fetchall()
 
         # Get top services with proper price calculation
@@ -621,7 +621,7 @@ def analytics():
                             total_products_sold=total_products_sold,
                             total_services_rendered=total_services_rendered,
                             average_transaction=average_transaction,
-                            top_products=product_sales,
+                            top_products=top_products,
                             top_services=service_sales,
                             sales_trend=sales_trend,
                             payment_methods=payment_methods,
