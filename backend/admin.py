@@ -17,6 +17,7 @@ from functools import wraps
 from decimal import Decimal
 import json
 from sqlalchemy import func
+import xlsxwriter
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -3110,3 +3111,174 @@ def get_service_category(category_id):
         return jsonify({
             'error': str(e)
         }), 500
+
+@admin_bp.route('/admin/download-report')
+@login_required
+@admin_required
+def download_report():
+    try:
+        # Get date range from request
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        if not start_date or not end_date:
+            return jsonify({'error': 'Start date and end date are required'}), 400
+            
+        # Convert dates to datetime objects
+        start_date = datetime.strptime(start_date, '%Y-%m-%d')
+        end_date = datetime.strptime(end_date, '%Y-%m-%d')
+        
+        # Get all shops
+        shops = Shop.query.all()
+        
+        # Create a BytesIO object to store the Excel file
+        output = BytesIO()
+        workbook = xlsxwriter.Workbook(output)
+        
+        # Add a worksheet for each shop
+        for shop in shops:
+            worksheet = workbook.add_worksheet(shop.name)
+            
+            # Add headers
+            headers = [
+                'Date', 'Total Sales', 'Cash', 'M-Pesa', 'Card', 'Other',
+                'Products Sold', 'Services Rendered', 'New Customers',
+                'Returning Customers', 'Average Transaction Value'
+            ]
+            for col, header in enumerate(headers):
+                worksheet.write(0, col, header)
+            
+            # Process each date in the range
+            current_date = start_date
+            row = 1
+            
+            while current_date <= end_date:
+                date_str = current_date.strftime('%Y-%m-%d')
+                logger.info(f"Processing date: {date_str}")
+                
+                try:
+                    # Get sales for this date
+                    sales = Sale.query.filter(
+                        Sale.shop_id == shop.id,
+                        func.date(Sale.sale_date) == date_str
+                    ).all()
+                    
+                    # Calculate totals
+                    total_sales = sum(sale.price * sale.quantity for sale in sales)
+                    
+                    # Calculate payment method totals
+                    payment_totals = {}
+                    for sale in sales:
+                        method = sale.payment_method
+                        if method not in payment_totals:
+                            payment_totals[method] = 0
+                        payment_totals[method] += sale.price * sale.quantity
+                    
+                    # Get product and service counts
+                    product_count = sum(1 for sale in sales if sale.product_id is not None)
+                    service_count = sum(1 for sale in sales if sale.service_id is not None)
+                    
+                    # Get customer counts
+                    customer_ids = {sale.customer_id for sale in sales if sale.customer_id}
+                    new_customers = sum(1 for cid in customer_ids if Customer.query.get(cid).created_at.date() == current_date.date())
+                    returning_customers = len(customer_ids) - new_customers
+                    
+                    # Calculate average transaction value
+                    avg_transaction = total_sales / len(sales) if sales else 0
+                    
+                    # Write data to worksheet
+                    worksheet.write(row, 0, date_str)
+                    worksheet.write(row, 1, total_sales)
+                    worksheet.write(row, 2, payment_totals.get('cash', 0))
+                    worksheet.write(row, 3, payment_totals.get('mpesa', 0))
+                    worksheet.write(row, 4, payment_totals.get('card', 0))
+                    worksheet.write(row, 5, payment_totals.get('other', 0))
+                    worksheet.write(row, 6, product_count)
+                    worksheet.write(row, 7, service_count)
+                    worksheet.write(row, 8, new_customers)
+                    worksheet.write(row, 9, returning_customers)
+                    worksheet.write(row, 10, avg_transaction)
+                    
+                except Exception as e:
+                    logger.error(f"Error processing date {date_str}: {str(e)}")
+                    # Write error message to worksheet
+                    worksheet.write(row, 0, date_str)
+                    worksheet.write(row, 1, f"Error: {str(e)}")
+                
+                current_date += timedelta(days=1)
+                row += 1
+            
+            # Add summary section
+            summary_row = row + 2
+            worksheet.write(summary_row, 0, 'Summary')
+            worksheet.write(summary_row + 1, 0, 'Total Sales')
+            worksheet.write(summary_row + 1, 1, f'=SUM(B2:B{row})')
+            worksheet.write(summary_row + 2, 0, 'Average Daily Sales')
+            worksheet.write(summary_row + 2, 1, f'=AVERAGE(B2:B{row})')
+            worksheet.write(summary_row + 3, 0, 'Total Products Sold')
+            worksheet.write(summary_row + 3, 1, f'=SUM(G2:G{row})')
+            worksheet.write(summary_row + 4, 0, 'Total Services Rendered')
+            worksheet.write(summary_row + 4, 1, f'=SUM(H2:H{row})')
+            worksheet.write(summary_row + 5, 0, 'Total New Customers')
+            worksheet.write(summary_row + 5, 1, f'=SUM(I2:I{row})')
+            worksheet.write(summary_row + 6, 0, 'Total Returning Customers')
+            worksheet.write(summary_row + 6, 1, f'=SUM(J2:J{row})')
+            
+            # Add charts
+            chart_sheet = workbook.add_worksheet(f'{shop.name} Charts')
+            
+            # Sales trend chart
+            sales_chart = workbook.add_chart({'type': 'line'})
+            sales_chart.add_series({
+                'name': 'Daily Sales',
+                'categories': f'={shop.name}!$A$2:$A${row}',
+                'values': f'={shop.name}!$B$2:$B${row}',
+            })
+            sales_chart.set_title({'name': 'Daily Sales Trend'})
+            sales_chart.set_x_axis({'name': 'Date'})
+            sales_chart.set_y_axis({'name': 'Amount (KES)'})
+            chart_sheet.insert_chart('A1', sales_chart)
+            
+            # Payment methods pie chart
+            payment_chart = workbook.add_chart({'type': 'pie'})
+            payment_chart.add_series({
+                'name': 'Payment Methods',
+                'categories': ['Cash', 'M-Pesa', 'Card', 'Other'],
+                'values': [
+                    f'=SUM({shop.name}!$C$2:$C${row})',
+                    f'=SUM({shop.name}!$D$2:$D${row})',
+                    f'=SUM({shop.name}!$E$2:$E${row})',
+                    f'=SUM({shop.name}!$F$2:$F${row})'
+                ],
+            })
+            payment_chart.set_title({'name': 'Payment Methods Distribution'})
+            chart_sheet.insert_chart('A17', payment_chart)
+            
+            # Customer type pie chart
+            customer_chart = workbook.add_chart({'type': 'pie'})
+            customer_chart.add_series({
+                'name': 'Customer Types',
+                'categories': ['New Customers', 'Returning Customers'],
+                'values': [
+                    f'=SUM({shop.name}!$I$2:$I${row})',
+                    f'=SUM({shop.name}!$J$2:$J${row})'
+                ],
+            })
+            customer_chart.set_title({'name': 'Customer Distribution'})
+            chart_sheet.insert_chart('I1', customer_chart)
+        
+        # Save the workbook
+        workbook.close()
+        output.seek(0)
+        
+        # Create the response
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'sales_report_{start_date.strftime("%Y%m%d")}_{end_date.strftime("%Y%m%d")}.xlsx'
+        )
+        
+    except Exception as e:
+        logger.error(f"Error generating report: {str(e)}")
+        return jsonify({'error': str(e)}), 500
