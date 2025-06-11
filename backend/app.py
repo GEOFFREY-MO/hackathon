@@ -6,12 +6,11 @@ from dotenv import load_dotenv
 from pathlib import Path
 from werkzeug.security import generate_password_hash
 from datetime import datetime
-from database.models import db
+from backend.database import db, User, Shop, Product, Inventory, UnscannedSale
 from commands import create_test_shop, verify_database, check_database, reset_database, create_default_resources
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from config import Config
-from backend.database import User
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_socketio import SocketIO
@@ -66,9 +65,6 @@ def create_app(config_class=None):
     login_manager = LoginManager(app)
     login_manager.login_view = 'auth.login'
     socketio = SocketIO(app, cors_allowed_origins="*")
-
-    # Import models
-    from backend.database.models import Shop, Product, Inventory, UnscannedSale
 
     # Register commands
     app.cli.add_command(create_test_shop)
