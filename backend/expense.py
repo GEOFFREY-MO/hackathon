@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from backend.database import db, Expense, Shop, User, ExpenseCategory
+from backend.database import db, Expense, Shop, User
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
 import logging
@@ -17,12 +17,11 @@ def get_expenses():
         expenses = Expense.query.filter_by(shop_id=user.shop_id).all()
         return jsonify([{
             'id': expense.id,
-            'amount': expense.amount,
+            'amount': float(expense.amount),
             'description': expense.description,
-            'category_id': expense.category_id,
-            'category_name': expense.category.name if expense.category else None,
+            'category': expense.category,
             'date': expense.date.isoformat(),
-            'created_at': expense.created_at.isoformat()
+            'created_by': expense.created_by
         } for expense in expenses])
     except Exception as e:
         logging.error(f"Error getting expenses: {str(e)}")
@@ -37,34 +36,26 @@ def create_expense():
         if not user or not user.shop_id:
             return jsonify({'error': 'Shop not found'}), 404
         data = request.get_json()
-        if not data or 'amount' not in data:
-            return jsonify({'error': 'Amount is required'}), 400
-        category = None
-        if 'category_id' in data:
-            category = ExpenseCategory.query.filter_by(
-                id=data['category_id'],
-                shop_id=user.shop_id
-            ).first()
-            if not category:
-                return jsonify({'error': 'Category not found'}), 404
+        if not data or 'amount' not in data or 'category' not in data or 'description' not in data:
+            return jsonify({'error': 'Amount, category, and description are required'}), 400
+        
         expense = Expense(
             shop_id=user.shop_id,
             amount=data['amount'],
-            description=data.get('description'),
-            category_id=category.id if category else None,
+            description=data['description'],
+            category=data['category'],
             date=datetime.strptime(data.get('date', datetime.utcnow().isoformat()), '%Y-%m-%dT%H:%M:%S.%fZ'),
-            created_at=datetime.utcnow()
+            created_by=current_user_id
         )
         db.session.add(expense)
         db.session.commit()
         return jsonify({
             'id': expense.id,
-            'amount': expense.amount,
+            'amount': float(expense.amount),
             'description': expense.description,
-            'category_id': expense.category_id,
-            'category_name': category.name if category else None,
+            'category': expense.category,
             'date': expense.date.isoformat(),
-            'created_at': expense.created_at.isoformat()
+            'created_by': expense.created_by
         }), 201
     except Exception as e:
         logging.error(f"Error creating expense: {str(e)}")
@@ -91,28 +82,18 @@ def update_expense(expense_id):
             expense.amount = data['amount']
         if 'description' in data:
             expense.description = data['description']
+        if 'category' in data:
+            expense.category = data['category']
         if 'date' in data:
             expense.date = datetime.strptime(data['date'], '%Y-%m-%dT%H:%M:%S.%fZ')
-        if 'category_id' in data:
-            if data['category_id'] is None:
-                expense.category_id = None
-            else:
-                category = ExpenseCategory.query.filter_by(
-                    id=data['category_id'],
-                    shop_id=user.shop_id
-                ).first()
-                if not category:
-                    return jsonify({'error': 'Category not found'}), 404
-                expense.category_id = category.id
         db.session.commit()
         return jsonify({
             'id': expense.id,
-            'amount': expense.amount,
+            'amount': float(expense.amount),
             'description': expense.description,
-            'category_id': expense.category_id,
-            'category_name': expense.category.name if expense.category else None,
+            'category': expense.category,
             'date': expense.date.isoformat(),
-            'created_at': expense.created_at.isoformat()
+            'created_by': expense.created_by
         })
     except Exception as e:
         logging.error(f"Error updating expense: {str(e)}")
