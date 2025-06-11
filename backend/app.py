@@ -14,7 +14,7 @@ from config import Config
 from auth import auth_bp
 from admin import admin_bp
 from employee import employee_bp
-from backend.database.models import User
+from backend.database import User
 
 # Load environment variables
 load_dotenv()
@@ -35,7 +35,7 @@ def create_app(config_class=None):
         app.config.from_object(config_class)
     else:
         # Default configuration if none provided
-        app.config.from_object(Config)
+        app.config.from_object('backend.config.Config')
 
     # Ensure instance folder exists
     try:
