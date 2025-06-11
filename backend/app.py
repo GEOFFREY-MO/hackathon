@@ -7,7 +7,7 @@ from pathlib import Path
 from werkzeug.security import generate_password_hash
 from datetime import datetime
 from backend.database import db, User, Shop, Product, Inventory, UnscannedSale
-from commands import create_test_shop, verify_database, check_database, reset_database, create_default_resources
+from backend.commands import create_test_shop, verify_database, check_database, reset_database, create_default_resources
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from config import Config
