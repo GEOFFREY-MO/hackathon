@@ -18,6 +18,7 @@ from decimal import Decimal
 import json
 from sqlalchemy import func
 import xlsxwriter
+from werkzeug.security import generate_password_hash
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -44,8 +45,8 @@ def admin_required(f):
 @admin_required
 def dashboard():
     try:
-        # Get all shops
-        shops = Shop.query.all()
+        # Get shops owned by the current admin
+        shops = Shop.query.filter_by(admin_id=current_user.id).all()
         
         # Initialize data structures
         shop_data = {}
@@ -67,8 +68,12 @@ def dashboard():
                 inventory_items = Inventory.query.filter_by(shop_id=shop.id).all()
                 shop_inventory = sum(item.quantity for item in inventory_items)
                 
-                # Get employee count
-                employee_count = User.query.filter_by(shop_id=shop.id, role='employee').count()
+                # Get employee count (only employees managed by this admin)
+                employee_count = User.query.filter_by(
+                    shop_id=shop.id, 
+                    admin_id=current_user.id,
+                    role='employee'
+                ).count()
                 
                 # Store shop data
                 shop_data[shop.id] = {
@@ -86,49 +91,26 @@ def dashboard():
                 current_app.logger.error(f"Error processing shop {shop.id}: {str(e)}", exc_info=True)
                 continue
         
-        # Get total products
-        total_products = Product.query.count()
+        # Get total products across all shops
+        total_products = Product.query.filter(Product.shop_id.in_([shop.id for shop in shops])).count()
         
-        # Get recent sales
-        recent_sales = Sale.query.order_by(Sale.sale_date.desc()).limit(5).all()
-        
-        # Get sales by payment method (for all shops)
-        try:
-            sales_by_payment_method = db.session.query(
-                Sale.payment_method,
-                db.func.sum(Product.marked_price * Sale.quantity).label('total')
-            ).join(Product, Sale.product_id == Product.id).group_by(Sale.payment_method).all()
-        except Exception as e:
-            current_app.logger.error(f"Error getting sales by payment method: {str(e)}", exc_info=True)
-            sales_by_payment_method = []
-        
-        # Get sales by date (for all shops)
-        try:
-            sales_by_date = db.session.query(
-                db.func.date(Sale.sale_date).label('date'),
-                db.func.sum(Product.marked_price * Sale.quantity).label('total')
-            ).join(Product, Sale.product_id == Product.id).group_by(db.func.date(Sale.sale_date)).all()
-        except Exception as e:
-            current_app.logger.error(f"Error getting sales by date: {str(e)}", exc_info=True)
-            sales_by_date = []
-        
-        # Calculate average sale
-        average_sale = total_sales / total_sale_count if total_sale_count > 0 else 0
+        # Get recent sales for all shops
+        recent_sales = Sale.query.filter(
+            Sale.shop_id.in_([shop.id for shop in shops])
+        ).order_by(Sale.sale_date.desc()).limit(5).all()
         
         return render_template('admin/dashboard.html',
+                             shops=shops,
                              shop_data=shop_data,
                              total_sales=total_sales,
                              total_products=total_products,
                              total_inventory=total_inventory,
                              total_employees=total_employees,
-                             recent_sales=recent_sales,
-                             sales_by_payment_method=sales_by_payment_method,
-                             sales_by_date=sales_by_date,
-                             average_sale=average_sale)
-                             
+                             total_sale_count=total_sale_count,
+                             recent_sales=recent_sales)
     except Exception as e:
-        current_app.logger.error(f"Error in admin dashboard: {str(e)}", exc_info=True)
-        flash('Error loading dashboard data', 'danger')
+        current_app.logger.error(f"Error in dashboard: {str(e)}", exc_info=True)
+        flash('An error occurred while loading the dashboard.', 'error')
         return redirect(url_for('auth.select_role'))
 
 
@@ -245,38 +227,42 @@ def export_data():
 
 @admin_bp.route('/shops')
 @login_required
+@admin_required
 def manage_shops():
     """Manage shops - view, add, edit, delete shops."""
-    if current_user.role != 'admin':
-        return redirect(url_for('auth.select_role'))
-
-    shops = Shop.query.all()
+    # Get only shops owned by the current admin
+    shops = Shop.query.filter_by(admin_id=current_user.id).all()
     return render_template('admin/shops.html', shops=shops)
 
 
 @admin_bp.route('/shops/add', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def add_shop():
     """Add a new shop."""
-    if current_user.role != 'admin':
-        return redirect(url_for('auth.select_role'))
-
     if request.method == 'POST':
         try:
             name = request.form.get('name')
             location = request.form.get('location')
-            manager_id = request.form.get('manager_id')
+            contact = request.form.get('contact')
+            email = request.form.get('email')
 
             if not name or not location:
                 flash('Name and location are required.', 'danger')
                 return redirect(url_for('admin.manage_shops'))
 
-            # Check if shop name already exists
-            if Shop.query.filter_by(name=name).first():
+            # Check if shop name already exists for this admin
+            if Shop.query.filter_by(name=name, admin_id=current_user.id).first():
                 flash('A shop with this name already exists.', 'danger')
                 return redirect(url_for('admin.manage_shops'))
 
-            shop = Shop(name=name, location=location)
+            shop = Shop(
+                name=name,
+                location=location,
+                contact=contact,
+                email=email,
+                admin_id=current_user.id
+            )
             db.session.add(shop)
             db.session.commit()
 
@@ -286,32 +272,32 @@ def add_shop():
             db.session.rollback()
             flash('Error adding shop.', 'danger')
 
-    # Get all users for the manager selection dropdown
-    users = User.query.all()
-    return render_template('admin/add_shop.html', users=users)
+    return render_template('admin/add_shop.html')
 
 
 @admin_bp.route('/shops/<int:shop_id>/edit', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def edit_shop(shop_id):
     """Edit an existing shop."""
-    if current_user.role != 'admin':
-        return redirect(url_for('auth.select_role'))
-
-    shop = Shop.query.get_or_404(shop_id)
+    # Get shop and verify ownership
+    shop = Shop.query.filter_by(id=shop_id, admin_id=current_user.id).first_or_404()
 
     if request.method == 'POST':
         try:
             name = request.form.get('name')
             location = request.form.get('location')
+            contact = request.form.get('contact')
+            email = request.form.get('email')
 
             if not name or not location:
                 flash('Name and location are required.', 'danger')
                 return redirect(url_for('admin.edit_shop', shop_id=shop_id))
 
-            # Check if shop name already exists (excluding current shop)
+            # Check if shop name already exists for this admin (excluding current shop)
             existing_shop = Shop.query.filter(
                 Shop.name == name,
+                Shop.admin_id == current_user.id,
                 Shop.id != shop_id
             ).first()
             if existing_shop:
@@ -320,6 +306,8 @@ def edit_shop(shop_id):
 
             shop.name = name
             shop.location = location
+            shop.contact = contact
+            shop.email = email
             db.session.commit()
 
             flash('Shop updated successfully!', 'success')
@@ -333,16 +321,14 @@ def edit_shop(shop_id):
 
 @admin_bp.route('/shops/<int:shop_id>/delete', methods=['POST'])
 @login_required
+@admin_required
 def delete_shop(shop_id):
     """Delete a shop."""
-    if current_user.role != 'admin':
-        flash('Access denied.', 'danger')
-        return redirect(url_for('auth.select_role'))
+    # Get shop and verify ownership
+    shop = Shop.query.filter_by(id=shop_id, admin_id=current_user.id).first_or_404()
 
     try:
-        shop = Shop.query.get_or_404(shop_id)
-
-        # Check if shop has any users
+        # Check if shop has any employees
         if User.query.filter_by(shop_id=shop_id).first():
             flash('Cannot delete shop with associated employees.', 'danger')
             return redirect(url_for('admin.manage_shops'))
@@ -365,87 +351,149 @@ def delete_shop(shop_id):
 
 @admin_bp.route('/users')
 @login_required
+@admin_required
 def manage_users():
     """Manage users - view, add, edit, delete users."""
-    if current_user.role != 'admin':
-        return redirect(url_for('auth.select_role'))
-
-    users = User.query.all()
-    shops = Shop.query.all()
+    # Get only employees managed by this admin
+    users = User.query.filter_by(admin_id=current_user.id).all()
+    # Get only shops owned by this admin
+    shops = Shop.query.filter_by(admin_id=current_user.id).all()
     return render_template('admin/users.html', users=users, shops=shops)
 
 
-@admin_bp.route('/users/<int:user_id>/edit', methods=['GET', 'POST'])
+@admin_bp.route('/users/add', methods=['GET', 'POST'])
 @login_required
-def edit_user(user_id):
-    """Edit an existing user."""
-    if current_user.role != 'admin':
-        return jsonify({"error": "Unauthorized"}), 403
-
-    user = User.query.get_or_404(user_id)
-
+@admin_required
+def add_user():
+    """Add a new user (employee)."""
     if request.method == 'POST':
         try:
             name = request.form.get('name')
             email = request.form.get('email')
-            role = request.form.get('role')
+            password = request.form.get('password')
             shop_id = request.form.get('shop_id')
 
-            if not name or not email or not role:
-                flash('Name, email, and role are required.', 'danger')
-                return redirect(url_for('admin.manage_users'))
+            # Validate required fields
+            if not all([name, email, password, shop_id]):
+                flash('All fields are required.', 'danger')
+                return redirect(url_for('admin.add_user'))
 
-            # Check if email is already taken by another user
-            existing_user = User.query.filter(
-                User.email == email,
-                User.id != user_id
-            ).first()
-            if existing_user:
-                flash('Email is already taken.', 'danger')
-                return redirect(url_for('admin.manage_users'))
+            # Check if email already exists
+            if User.query.filter_by(email=email).first():
+                flash('Email already registered.', 'danger')
+                return redirect(url_for('admin.add_user'))
 
-            user.name = name
-            user.email = email
-            user.role = role
-            user.shop_id = shop_id if shop_id else None
+            # Verify shop belongs to this admin
+            shop = Shop.query.filter_by(id=shop_id, admin_id=current_user.id).first()
+            if not shop:
+                flash('Invalid shop selection.', 'danger')
+                return redirect(url_for('admin.add_user'))
 
+            # Create new employee
+            user = User(
+                name=name,
+                email=email,
+                password_hash=generate_password_hash(password),
+                role='employee',
+                shop_id=shop_id,
+                admin_id=current_user.id
+            )
+            db.session.add(user)
             db.session.commit()
-            flash('User updated successfully!', 'success')
+
+            flash('Employee added successfully!', 'success')
             return redirect(url_for('admin.manage_users'))
         except Exception as e:
             db.session.rollback()
-            flash('Error updating user.', 'danger')
-            return redirect(url_for('admin.manage_users'))
+            flash('Error adding employee.', 'danger')
 
-    # GET request - show edit form
-    shops = Shop.query.all()
+    # Get only shops owned by this admin
+    shops = Shop.query.filter_by(admin_id=current_user.id).all()
+    return render_template('admin/add_user.html', shops=shops)
+
+
+@admin_bp.route('/users/<int:user_id>/edit', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_user(user_id):
+    """Edit an existing user."""
+    # Get user and verify they are managed by this admin
+    user = User.query.filter_by(id=user_id, admin_id=current_user.id).first_or_404()
+    # Get only shops owned by this admin
+    shops = Shop.query.filter_by(admin_id=current_user.id).all()
+    
+    if request.method == 'POST':
+        try:
+            name = request.form.get('name')
+            email = request.form.get('email')
+            shop_id = request.form.get('shop_id')
+            is_active = request.form.get('is_active') == 'true'
+            
+            # Validate required fields
+            if not all([name, email, shop_id]):
+                return jsonify({
+                    'success': False,
+                    'message': 'Name, email, and shop are required'
+                }), 400
+            
+            # Check if email is already taken by another user
+            existing_user = User.query.filter(
+                User.email == email,
+                User.id != user_id,
+                User.admin_id == current_user.id
+            ).first()
+            if existing_user:
+                return jsonify({
+                    'success': False,
+                    'message': 'Email is already taken by another employee'
+                }), 400
+            
+            # Verify shop belongs to this admin
+            shop = Shop.query.filter_by(id=shop_id, admin_id=current_user.id).first()
+            if not shop:
+                return jsonify({
+                    'success': False,
+                    'message': 'Invalid shop selection'
+                }), 400
+            
+            # Update user
+            user.name = name
+            user.email = email
+            user.shop_id = shop_id
+            user.is_active = is_active
+            
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Employee updated successfully'
+            })
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'message': f'Error updating employee: {str(e)}'
+            }), 500
+
     return render_template('admin/edit_user.html', user=user, shops=shops)
 
 
 @admin_bp.route('/users/<int:user_id>/delete', methods=['POST'])
 @login_required
+@admin_required
 def delete_user(user_id):
     """Delete a user."""
-    if current_user.role != 'admin':
-        flash('Access denied.', 'danger')
-        return redirect(url_for('auth.select_role'))
-
+    # Get user and verify they are managed by this admin
+    user = User.query.filter_by(id=user_id, admin_id=current_user.id).first_or_404()
+    
     try:
-        user = User.query.get_or_404(user_id)
-
-        # Prevent self-deletion
-        if user.id == current_user.id:
-            flash('Cannot delete your own account.', 'danger')
-            return redirect(url_for('admin.manage_users'))
-
         db.session.delete(user)
         db.session.commit()
-
         flash('User deleted successfully!', 'success')
     except Exception as e:
         db.session.rollback()
         flash('Error deleting user.', 'danger')
-
+    
     return redirect(url_for('admin.manage_users'))
 
 
