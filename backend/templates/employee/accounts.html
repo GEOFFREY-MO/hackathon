@@ -224,7 +224,7 @@
                                 <tbody>
                                     {% for data in historical_data %}
                                     <tr>
-                                        <td>{{ data.date.strftime('%Y-%m-%d') }}</td>
+                                        <td>{{ data.date }}</td>
                                         <td>KES {{ "%.2f"|format(data.cash) }}</td>
                                         <td>KES {{ "%.2f"|format(data.till) }}</td>
                                         <td>KES {{ "%.2f"|format(data.bank) }}</td>
