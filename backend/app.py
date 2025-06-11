@@ -40,16 +40,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def create_app(config_class=None):
+def create_app(config_name='default'):
     # Initialize Flask app
     app = Flask(__name__)
 
     # Set configuration
-    if config_class:
-        app.config.from_object(config_class)
-    else:
-        # Default configuration if none provided
-        app.config.from_object('backend.config.Config')
+    app.config.from_object(config[config_name])
+    config[config_name].init_app(app)
 
     # Ensure instance folder exists
     try:
