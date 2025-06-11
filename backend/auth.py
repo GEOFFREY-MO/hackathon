@@ -4,8 +4,9 @@ from flask import Blueprint, render_template, redirect, request, url_for, flash,
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 import re
-from backend.database.models import db, User, Shop
+from database.models import db, User, Shop
 from datetime import datetime
+import logging
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -89,78 +90,82 @@ def employee_login():
 def register():
     if request.method == 'POST':
         try:
-            name = request.form['name'].strip()
-            email = request.form['email'].strip().lower()
-            password = request.form['password']
-            confirm_password = request.form['confirm_password']
-            role = request.form['role']
-            shop_id = request.form.get('shop_id') if role == 'employee' else None
+            name = request.form.get('name')
+            email = request.form.get('email')
+            password = request.form.get('password')
+            role = request.form.get('role')
+            shop_id = request.form.get('shop_id')
 
-            # Validate inputs
-            if not name or not email or not password:
-                flash('All fields are required.')
+            # Validate required fields
+            if not all([name, email, password, role]):
+                flash('All fields are required.', 'danger')
                 return redirect(url_for('auth.register'))
 
-            if not is_valid_email(email):
-                flash('Please enter a valid email address.')
-                return redirect(url_for('auth.register'))
-
-            if password != confirm_password:
-                flash('Passwords do not match.')
-                return redirect(url_for('auth.register'))
-
-            if len(password) < 8:
-                flash('Password must be at least 8 characters long.')
-                return redirect(url_for('auth.register'))
-
-            # Check if user already exists
+            # Check if email already exists
             if User.query.filter_by(email=email).first():
-                flash('This email is already registered.')
+                flash('Email already registered.', 'danger')
                 return redirect(url_for('auth.register'))
 
-            # Validate shop_id for employees
-            if role == 'employee' and not shop_id:
-                flash('Please select a shop for employee registration.')
-                return redirect(url_for('auth.register'))
+            if role == 'admin':
+                # For new admin, create their first shop
+                shop = Shop(
+                    name=f"{name}'s Shop",
+                    location="To be updated",
+                    admin_id=None  # Will be set after user creation
+                )
+                db.session.add(shop)
+                db.session.flush()  # Get the shop ID
 
-            # Create new user
-            new_user = User(
-                name=name,
-                email=email,
-                role=role,
-                shop_id=shop_id,
-                password_hash=generate_password_hash(password)
-            )
+                # Create admin user
+                user = User(
+                    name=name,
+                    email=email,
+                    password_hash=generate_password_hash(password),
+                    role='admin',
+                    shop_id=shop.id,
+                    admin_id=None  # Admins don't have an admin
+                )
+                db.session.add(user)
+                db.session.flush()  # Get the user ID
 
-            db.session.add(new_user)
+                # Update shop with admin_id
+                shop.admin_id = user.id
+
+            else:  # role == 'employee'
+                # For employees, verify shop and admin
+                if not shop_id:
+                    flash('Shop selection is required for employees.', 'danger')
+                    return redirect(url_for('auth.register'))
+
+                # Verify shop exists and get its admin
+                shop = Shop.query.get(shop_id)
+                if not shop:
+                    flash('Invalid shop selection.', 'danger')
+                    return redirect(url_for('auth.register'))
+
+                # Create employee user
+                user = User(
+                    name=name,
+                    email=email,
+                    password_hash=generate_password_hash(password),
+                    role='employee',
+                    shop_id=shop_id,
+                    admin_id=shop.admin_id  # Set the shop's admin as this employee's admin
+                )
+                db.session.add(user)
+
             db.session.commit()
+            flash('Registration successful! Please log in.', 'success')
+            return redirect(url_for('auth.login'))
 
-            flash('Registration successful! Please log in.')
-            return redirect(url_for('auth.select_role'))
         except Exception as e:
             db.session.rollback()
-            print(f"Registration error: {str(e)}")  # Add logging
-            flash('An error occurred during registration.')
+            flash('Error during registration.', 'danger')
             return redirect(url_for('auth.register'))
 
-    try:
-        # Load shop list for the dropdown
-        shops = Shop.query.order_by(Shop.name).all()
-        if not shops:
-            # If no shops exist, create a default shop
-            default_shop = Shop(
-                name="Main Store",
-                location="123 Main Street, City Center"
-            )
-            db.session.add(default_shop)
-            db.session.commit()
-            shops = [default_shop]
-        
-        return render_template('register.html', shops=shops)
-    except Exception as e:
-        print(f"Error loading registration page: {str(e)}")  # Add logging
-        flash('An error occurred while loading registration page.')
-        return redirect(url_for('auth.select_role'))
+    # For GET request, get shops for employee registration
+    shops = Shop.query.all() if request.args.get('role') == 'employee' else []
+    return render_template('register.html', shops=shops)
 
 # -------------------------------
 # LOGOUT
