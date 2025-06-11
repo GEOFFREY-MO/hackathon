@@ -300,6 +300,26 @@ class FinancialRecord(db.Model):
     def __repr__(self):
         return f'<FinancialRecord {self.id}: {self.type} {self.amount}>'
 
+class Notification(db.Model):
+    """Model for shop notifications."""
+    __tablename__ = 'notification'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    shop_id = db.Column(db.Integer, db.ForeignKey('shop.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    title = db.Column(db.String(100), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    type = db.Column(db.String(20), nullable=False)  # 'info', 'warning', 'error', 'success'
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    shop = db.relationship('Shop', backref=db.backref('notifications', lazy=True))
+    user = db.relationship('User', backref=db.backref('notifications', lazy=True))
+
+    def __repr__(self):
+        return f'<Notification {self.id}: {self.title}>'
+
 # Event listeners for resource tracking
 @event.listens_for(ShopResource, 'after_update')
 def track_resource_changes(mapper, connection, target):
