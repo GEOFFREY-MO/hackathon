@@ -12,9 +12,18 @@ class Shop(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     location = db.Column(db.String(200), nullable=False)
+    contact = db.Column(db.String(20), nullable=True)
+    email = db.Column(db.String(120), nullable=True)
+    admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)  # Shop owner/admin
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
     users = db.relationship('User', backref='shop', lazy=True)
-    inventory = db.relationship('Inventory', backref='shop', lazy=True)
+    products = db.relationship('Product', backref='shop', lazy=True)
+    services = db.relationship('Service', backref='shop', lazy=True)
+    resources = db.relationship('Resource', backref='shop', lazy=True)
+    expenses = db.relationship('Expense', backref='shop', lazy=True)
+    financial_records = db.relationship('FinancialRecord', backref='shop', lazy=True)
 
     def __repr__(self):
         return f'<Shop {self.name}>'
@@ -27,7 +36,13 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(20), nullable=False)  # 'admin' or 'employee'
     shop_id = db.Column(db.Integer, db.ForeignKey('shop.id'), nullable=True)
+    admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # For employee-admin relationship
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True)  # For account status
+
+    # Relationships
+    managed_employees = db.relationship('User', backref=db.backref('admin', remote_side=[id]), 
+                                      foreign_keys=[admin_id])
 
     def __repr__(self):
         return f'<User {self.email}>'
