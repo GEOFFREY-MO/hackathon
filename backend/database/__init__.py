@@ -7,7 +7,20 @@ from .models import db
 db = SQLAlchemy()
 
 # Import models to make them available when importing from database
-from backend.database.models import User, Shop, Product, Inventory, Sale, Service, ServiceSale, Resource, ShopResource, Expense, ResourceHistory, ResourceAlert, ResourceCategory, ServiceCategory, FinancialRecord
+from backend.database.models import (
+    User, Shop, Product, Inventory, Sale, Service, 
+    ServiceSale, Resource, ShopResource, Expense, 
+    ResourceHistory, ResourceAlert, ResourceCategory, 
+    ServiceCategory, FinancialRecord
+)
+
+__all__ = [
+    'db', 'User', 'Shop', 'Product', 'Inventory', 
+    'Sale', 'Service', 'ServiceSale', 'Resource', 
+    'ShopResource', 'Expense', 'ResourceHistory', 
+    'ResourceAlert', 'ResourceCategory', 'ServiceCategory', 
+    'FinancialRecord'
+]
 
 def init_db(app):
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///smart_retail.db'

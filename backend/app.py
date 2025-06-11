@@ -11,9 +11,6 @@ from commands import create_test_shop, verify_database, check_database, reset_da
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from config import Config
-from auth import auth_bp
-from admin import admin_bp
-from employee import employee_bp
 from backend.database import User
 
 # Load environment variables
@@ -60,9 +57,17 @@ def create_app(config_class=None):
     app.cli.add_command(create_default_resources)
 
     # Register blueprints
+    from backend.auth import auth_bp
+    from backend.admin import admin_bp
+    from backend.employee import employee_bp
+    from backend.product import product_bp
+    from backend.service import service_bp
+    from backend.resource import resource_bp
+    from backend.analytics import analytics_bp
+
     app.register_blueprint(auth_bp)
-    app.register_blueprint(employee_bp, url_prefix='/employee')
     app.register_blueprint(admin_bp, url_prefix='/admin')
+    app.register_blueprint(employee_bp, url_prefix='/employee')
     app.register_blueprint(product_bp, url_prefix='/products')
     app.register_blueprint(service_bp, url_prefix='/services')
     app.register_blueprint(resource_bp, url_prefix='/resources')
