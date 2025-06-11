@@ -12,6 +12,24 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from config import Config
 from backend.database import User
+from flask_cors import CORS
+from flask_jwt_extended import JWTManager
+from flask_socketio import SocketIO
+from logging.handlers import RotatingFileHandler
+from backend.admin import admin_bp
+from backend.auth import auth_bp
+from backend.shop import shop_bp
+from backend.product import product_bp
+from backend.inventory import inventory_bp
+from backend.sale import sale_bp
+from backend.service import service_bp
+from backend.resource import resource_bp
+from backend.expense import expense_bp
+from backend.analytics import analytics_bp
+from backend.notification import notification_bp
+from backend.report import report_bp
+from backend.settings import settings_bp
+from backend.websocket import websocket_bp
 
 # Load environment variables
 load_dotenv()
@@ -41,10 +59,13 @@ def create_app(config_class=None):
         logger.error(f"Error creating instance folder: {str(e)}")
 
     # Initialize extensions
+    CORS(app)
+    JWTManager(app)
     db.init_app(app)
     migrate = Migrate(app, db)
     login_manager = LoginManager(app)
     login_manager.login_view = 'auth.login'
+    socketio = SocketIO(app, cors_allowed_origins="*")
 
     # Import models
     from backend.database.models import Shop, Product, Inventory, UnscannedSale
@@ -57,21 +78,20 @@ def create_app(config_class=None):
     app.cli.add_command(create_default_resources)
 
     # Register blueprints
-    from backend.auth import auth_bp
-    from backend.admin import admin_bp
-    from backend.employee import employee_bp
-    from backend.product import product_bp
-    from backend.service import service_bp
-    from backend.resource import resource_bp
-    from backend.analytics import analytics_bp
-
-    app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp, url_prefix='/admin')
-    app.register_blueprint(employee_bp, url_prefix='/employee')
-    app.register_blueprint(product_bp, url_prefix='/products')
-    app.register_blueprint(service_bp, url_prefix='/services')
-    app.register_blueprint(resource_bp, url_prefix='/resources')
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(shop_bp, url_prefix='/shop')
+    app.register_blueprint(product_bp, url_prefix='/product')
+    app.register_blueprint(inventory_bp, url_prefix='/inventory')
+    app.register_blueprint(sale_bp, url_prefix='/sale')
+    app.register_blueprint(service_bp, url_prefix='/service')
+    app.register_blueprint(resource_bp, url_prefix='/resource')
+    app.register_blueprint(expense_bp, url_prefix='/expense')
     app.register_blueprint(analytics_bp, url_prefix='/analytics')
+    app.register_blueprint(notification_bp, url_prefix='/notification')
+    app.register_blueprint(report_bp, url_prefix='/report')
+    app.register_blueprint(settings_bp, url_prefix='/settings')
+    app.register_blueprint(websocket_bp, url_prefix='/ws')
 
     # Initialize database
     with app.app_context():
@@ -133,6 +153,19 @@ def create_app(config_class=None):
         db.session.rollback()
         logger.error(f"Internal server error: {str(error)}")
         return render_template('errors/500.html'), 500
+
+    # Setup logging
+    if not app.debug:
+        if not os.path.exists('logs'):
+            os.mkdir('logs')
+        file_handler = RotatingFileHandler('logs/smartretail.log', maxBytes=10240, backupCount=10)
+        file_handler.setFormatter(logging.Formatter(
+            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+        ))
+        file_handler.setLevel(logging.INFO)
+        app.logger.addHandler(file_handler)
+        app.logger.setLevel(logging.INFO)
+        app.logger.info('SmartRetail startup')
 
     return app
 

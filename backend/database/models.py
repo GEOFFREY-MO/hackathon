@@ -1,11 +1,8 @@
 # backend/database/models.py
-from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from datetime import datetime
 from sqlalchemy import event
-
-# Create SQLAlchemy instance without binding to app
-db = SQLAlchemy()
+from . import db
 
 class Shop(db.Model):
     __tablename__ = 'shop'

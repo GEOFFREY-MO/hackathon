@@ -1,13 +1,11 @@
 # backend/database/__init__.py
-from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from .models import db
 
 # Initialize SQLAlchemy
 db = SQLAlchemy()
 
 # Import models to make them available when importing from database
-from backend.database.models import (
+from .models import (
     User, Shop, Product, Inventory, Sale, Service, 
     ServiceSale, Resource, ShopResource, Expense, 
     ResourceHistory, ResourceAlert, ResourceCategory, 
