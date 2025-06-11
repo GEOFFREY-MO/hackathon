@@ -6,14 +6,15 @@ from dotenv import load_dotenv
 from pathlib import Path
 from werkzeug.security import generate_password_hash
 from datetime import datetime
-from backend.database.models import db
-from backend.commands import create_test_shop, verify_database, check_database, reset_database, create_default_resources
+from database.models import db
+from commands import create_test_shop, verify_database, check_database, reset_database, create_default_resources
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from backend.config import Config
-from backend.auth import auth_bp
-from backend.employee import employee_bp
-from backend.admin import admin_bp
+from config import Config
+from auth import auth_bp
+from admin import admin_bp
+from employee import employee_bp
+from backend.database.models import User
 
 # Load environment variables
 load_dotenv()
@@ -44,12 +45,12 @@ def create_app(config_class=None):
 
     # Initialize extensions
     db.init_app(app)
-    migrate = Migrate(app, db, directory=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'migrations'))
+    migrate = Migrate(app, db)
     login_manager = LoginManager(app)
     login_manager.login_view = 'auth.login'
 
     # Import models
-    from backend.database.models import Shop, User, Product, Inventory, UnscannedSale
+    from backend.database.models import Shop, Product, Inventory, UnscannedSale
 
     # Register commands
     app.cli.add_command(create_test_shop)
@@ -62,6 +63,10 @@ def create_app(config_class=None):
     app.register_blueprint(auth_bp)
     app.register_blueprint(employee_bp, url_prefix='/employee')
     app.register_blueprint(admin_bp, url_prefix='/admin')
+    app.register_blueprint(product_bp, url_prefix='/products')
+    app.register_blueprint(service_bp, url_prefix='/services')
+    app.register_blueprint(resource_bp, url_prefix='/resources')
+    app.register_blueprint(analytics_bp, url_prefix='/analytics')
 
     # Initialize database
     with app.app_context():

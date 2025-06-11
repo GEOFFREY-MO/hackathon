@@ -4,7 +4,7 @@ from flask import Blueprint, render_template, redirect, request, url_for, flash,
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 import re
-from database.models import db, User, Shop
+from backend.database.models import db, User, Shop
 from datetime import datetime
 import logging
 
@@ -13,7 +13,7 @@ auth_bp = Blueprint('auth', __name__)
 def is_valid_email(email):
     """Validate email format"""
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return re.match(pattern, email) is not None
+    return bool(re.match(pattern, email))
 
 # -------------------------------
 # ROLE SELECTION

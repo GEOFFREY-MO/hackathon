@@ -1,17 +1,14 @@
 import os
-import sys
+from dotenv import load_dotenv
 
-# Add the project root directory to the Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Load environment variables
+load_dotenv()
 
+# Import the Flask app
 from backend.app import create_app
-from backend.config import config
 
-# Get the environment from environment variable, default to production
-env = os.environ.get('FLASK_ENV', 'production')
-
-# Initialize the app with the configuration
-app = create_app(config[env])
+# Create the app instance
+app = create_app()
 
 if __name__ == '__main__':
     app.run() 
