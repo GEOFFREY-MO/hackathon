@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
-from database.models import db, Product, Inventory, Shop, Sale
+from backend.database import db, Product, Inventory, Shop, Sale
 from sqlalchemy import or_
 import logging
 
