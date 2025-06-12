@@ -170,6 +170,7 @@ class Resource(db.Model):
     reorder_level = db.Column(db.Integer, default=10)  # When to reorder
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    shop_id = db.Column(db.Integer, db.ForeignKey('shop.id'), nullable=False)
 
     def __repr__(self):
         return f'<Resource {self.name}>'
