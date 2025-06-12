@@ -320,6 +320,27 @@ class Notification(db.Model):
     def __repr__(self):
         return f'<Notification {self.id}: {self.title}>'
 
+class Report(db.Model):
+    """Model for shop reports."""
+    __tablename__ = 'report'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    shop_id = db.Column(db.Integer, db.ForeignKey('shop.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    title = db.Column(db.String(100), nullable=False)
+    type = db.Column(db.String(50), nullable=False)  # e.g. 'sales', 'inventory', etc.
+    parameters = db.Column(db.JSON)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_generated = db.Column(db.DateTime)
+    schedule = db.Column(db.String(50))  # e.g. 'daily', 'weekly', etc.
+    
+    # Relationships
+    shop = db.relationship('Shop', backref=db.backref('reports', lazy=True))
+    user = db.relationship('User', backref=db.backref('reports', lazy=True))
+
+    def __repr__(self):
+        return f'<Report {self.id}: {self.title}>'
+
 # Event listeners for resource tracking
 @event.listens_for(ShopResource, 'after_update')
 def track_resource_changes(mapper, connection, target):

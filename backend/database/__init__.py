@@ -10,7 +10,7 @@ from .models import (
     ServiceSale, Resource, ShopResource, Expense, 
     ResourceHistory, ResourceAlert, ResourceCategory, 
     ServiceCategory, FinancialRecord, UnscannedSale,
-    Notification
+    Notification, Report
 )
 
 __all__ = [
@@ -18,7 +18,8 @@ __all__ = [
     'Sale', 'Service', 'ServiceSale', 'Resource', 
     'ShopResource', 'Expense', 'ResourceHistory', 
     'ResourceAlert', 'ResourceCategory', 'ServiceCategory', 
-    'FinancialRecord', 'UnscannedSale', 'Notification'
+    'FinancialRecord', 'UnscannedSale', 'Notification',
+    'Report'
 ]
 
 def init_db(app):
