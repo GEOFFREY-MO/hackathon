@@ -56,6 +56,8 @@ class Product(db.Model):
     inventory = db.relationship('Inventory', backref='product', lazy=True)
     shop_id = db.Column(db.Integer, db.ForeignKey('shop.id'), nullable=False)
 
+    shop = db.relationship('Shop', lazy=True)
+
     def __repr__(self):
         return f'<Product {self.name}>'
 
