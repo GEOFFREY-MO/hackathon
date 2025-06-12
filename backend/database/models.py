@@ -20,7 +20,7 @@ class Shop(db.Model):
     services = db.relationship('Service', lazy=True)
     resources = db.relationship('Resource', backref='shop', lazy=True)
     expenses = db.relationship('Expense', lazy=True)
-    financial_records = db.relationship('FinancialRecord', backref='shop', lazy=True)
+    financial_records = db.relationship('FinancialRecord', lazy=True)
 
     def __repr__(self):
         return f'<Shop {self.name}>'
