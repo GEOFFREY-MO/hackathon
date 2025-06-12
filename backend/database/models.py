@@ -186,7 +186,7 @@ class ShopResource(db.Model):
     last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     updated_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
-    shop = db.relationship('Shop', backref=db.backref('resources', lazy=True))
+    shop = db.relationship('Shop', lazy=True)
     resource = db.relationship('Resource', backref=db.backref('shop_quantities', lazy=True))
     updater = db.relationship('User', backref=db.backref('shop_resource_updates', lazy=True))
 
