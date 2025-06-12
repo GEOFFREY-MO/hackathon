@@ -54,6 +54,7 @@ class Product(db.Model):
     reorder_level = db.Column(db.Integer, default=10)  # Default reorder level of 10 units
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     inventory = db.relationship('Inventory', backref='product', lazy=True)
+    shop_id = db.Column(db.Integer, db.ForeignKey('shop.id'), nullable=False)
 
     def __repr__(self):
         return f'<Product {self.name}>'
