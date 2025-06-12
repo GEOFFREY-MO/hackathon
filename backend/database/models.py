@@ -16,7 +16,7 @@ class Shop(db.Model):
 
     # Relationships
     users = db.relationship('User', backref='shop', lazy=True, foreign_keys='User.shop_id')
-    products = db.relationship('Product', backref='shop', lazy=True)
+    products = db.relationship('Product', lazy=True)
     services = db.relationship('Service', lazy=True)
     resources = db.relationship('Resource', backref='shop', lazy=True)
     expenses = db.relationship('Expense', lazy=True)
