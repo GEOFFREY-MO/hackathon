@@ -119,7 +119,7 @@ class Service(db.Model):
     shop_id = db.Column(db.Integer, db.ForeignKey('shop.id'), nullable=False)
     
     # Relationships
-    shop = db.relationship('Shop', backref=db.backref('services', lazy=True))
+    shop = db.relationship('Shop', lazy=True)
     category = db.relationship('ServiceCategory', backref=db.backref('services', lazy=True))
 
     def __repr__(self):
