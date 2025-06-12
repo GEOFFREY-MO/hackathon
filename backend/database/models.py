@@ -15,7 +15,7 @@ class Shop(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
-    users = db.relationship('User', backref='shop', lazy=True)
+    users = db.relationship('User', backref='shop', lazy=True, foreign_keys='User.shop_id')
     products = db.relationship('Product', backref='shop', lazy=True)
     services = db.relationship('Service', backref='shop', lazy=True)
     resources = db.relationship('Resource', backref='shop', lazy=True)
