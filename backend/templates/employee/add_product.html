@@ -135,22 +135,76 @@
 {{ super() }}
 <script>
 // Camera scanning for add product
-document.getElementById('btnScanBarcode')?.addEventListener('click', function(){
+document.getElementById('btnScanBarcode')?.addEventListener('click', async function(){
     const modal = document.createElement('div');
     modal.className = 'modal fade';
-    modal.innerHTML = `<div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title"><i class='fas fa-camera'></i> Scan Barcode</h5><button type='button' class='btn-close' data-bs-dismiss='modal'></button></div><div class='modal-body'><div id='qr-reader' style='width:100%'></div></div></div></div>`;
+    modal.innerHTML = `
+    <div class="modal-dialog modal-fullscreen-sm-down modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class='fas fa-camera'></i> Scan Barcode</h5>
+          <button type='button' class='btn-close' data-bs-dismiss='modal'></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info py-2" id="scanHintAdd">Point the camera at the barcode. Scanning will stop automatically when detected.</div>
+          <video id="zxing-video-add" style="width:100%;height:auto;" autoplay muted playsinline></video>
+          <div class="small text-muted mt-2">If nothing is detected within 10 seconds, you will see a retry message.</div>
+        </div>
+      </div>
+    </div>`;
     document.body.appendChild(modal);
-    const bsModal = new bootstrap.Modal(modal); bsModal.show();
-    const script = document.createElement('script'); script.src = 'https://unpkg.com/html5-qrcode'; document.body.appendChild(script);
-    script.onload = () => {
-        const html5QrCode = new Html5Qrcode("qr-reader");
-        Html5Qrcode.getCameras().then(cams=>{
-            const camId = (cams && cams.length) ? cams[0].id : null; if(!camId) return;
-            html5QrCode.start(camId, {fps:10, qrbox:250}, (decodedText)=>{
-                document.getElementById('barcode').value = decodedText; html5QrCode.stop(); bsModal.hide(); modal.remove();
-            });
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+
+    function ensureZXing(){
+        return new Promise((resolve)=>{
+            if(window.ZXing && window.ZXing.BrowserMultiFormatReader){ resolve(true); return; }
+            const s = document.createElement('script'); s.src='https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js'; s.onload=()=>resolve(true); document.body.appendChild(s);
         });
+    }
+    await ensureZXing();
+
+    const videoElem = modal.querySelector('#zxing-video-add');
+    const hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+        ZXing.BarcodeFormat.EAN_13,
+        ZXing.BarcodeFormat.EAN_8,
+        ZXing.BarcodeFormat.UPC_A,
+        ZXing.BarcodeFormat.UPC_E,
+        ZXing.BarcodeFormat.CODE_128,
+        ZXing.BarcodeFormat.CODE_39
+    ]);
+    const codeReader = new ZXing.BrowserMultiFormatReader(hints);
+    let timeoutId = null; let running = true;
+    async function stop(){ if(!running) return; running=false; try{ codeReader.reset(); }catch(_){ } }
+    modal.addEventListener('hidden.bs.modal', stop, { once: true });
+
+    let devices = [];
+    try{ devices = await codeReader.listVideoInputDevices(); }catch(_){ devices=[]; }
+    if(!devices.length){
+        const hint = document.getElementById('scanHintAdd'); hint.className='alert alert-warning py-2'; hint.textContent='No camera detected.'; return;
+    }
+    const backCam = devices.find(d => /back|rear|environment/i.test(d.label));
+    const camId = (backCam || devices[0]).deviceId;
+
+    timeoutId = setTimeout(async ()=>{ if(!running) return; await stop(); const hint=document.getElementById('scanHintAdd'); hint.className='alert alert-warning py-2'; hint.textContent='No barcode detected, try again.'; }, 10000);
+
+    const cb = async (result, err) => {
+        if(!running) return;
+        if(result){
+            clearTimeout(timeoutId);
+            document.getElementById('barcode').value = result.getText();
+            await stop(); bsModal.hide(); modal.remove();
+        } else if (err && !(err instanceof ZXing.NotFoundException)){
+            const hint=document.getElementById('scanHintAdd'); hint.className='alert alert-warning py-2'; hint.textContent='Camera error. Check permissions and lighting.';
+        }
     };
+
+    try{
+        await codeReader.decodeFromConstraints({ video: { deviceId: { exact: camId }, facingMode: 'environment' } }, videoElem, cb);
+    }catch(e1){
+        try{ await codeReader.decodeFromVideoDevice(camId, videoElem, cb); }catch(e2){ const hint=document.getElementById('scanHintAdd'); hint.className='alert alert-danger py-2'; hint.textContent='Unable to start camera. Check permissions and retry.'; }
+    }
 });
 </script>
 {% endblock %}

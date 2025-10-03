@@ -262,7 +262,7 @@ scanInput.addEventListener('keydown', async function(e){
         if(!matched){
             // Fallback to backend lookup
             try{
-                const resp = await fetch('/product/scan', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ barcode: code })});
+                const resp = await fetch('/employee/product/scan', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ barcode: code })});
                 if(resp.ok){ const data = await resp.json();
                     for(const opt of productSelect.options){ if (opt.text.includes(data.name) || opt.dataset.barcode === data.barcode){ productSelect.value = opt.value; matched = true; break; } }
                 }
@@ -310,22 +310,137 @@ function updateSummary() {
 document.getElementById('btnOpenCamera').addEventListener('click', async function(){
     const modal = document.createElement('div');
     modal.className = 'modal fade';
-    modal.innerHTML = `<div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title"><i class='fas fa-camera'></i> Scan Barcode</h5><button type='button' class='btn-close' data-bs-dismiss='modal'></button></div><div class='modal-body'><div id='qr-reader' style='width:100%'></div></div></div></div>`;
+    modal.innerHTML = `
+    <div class="modal-dialog modal-fullscreen-sm-down modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class='fas fa-camera'></i> Scan Barcode</h5>
+          <button type='button' class='btn-close' data-bs-dismiss='modal'></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info py-2 d-flex justify-content-between align-items-center" id="scanHint">
+            <span>Point the camera at the barcode. Scanning will stop automatically when detected.</span>
+            <a id="addNewLink" href="#" class="btn btn-sm btn-outline-primary d-none">Add new</a>
+          </div>
+          <video id="zxing-video" style="width:100%;height:auto;" autoplay muted playsinline></video>
+          <div class="small text-muted mt-2">If nothing is detected within 10 seconds, you will see a retry message.</div>
+        </div>
+      </div>
+    </div>`;
     document.body.appendChild(modal);
     const bsModal = new bootstrap.Modal(modal);
     bsModal.show();
-    const script = document.createElement('script'); script.src = 'https://unpkg.com/html5-qrcode'; document.body.appendChild(script);
-    script.onload = () => {
-        const html5QrCode = new Html5Qrcode("qr-reader");
-        Html5Qrcode.getCameras().then(cams=>{
-            const camId = (cams && cams.length) ? cams[0].id : null;
-            if(!camId) return;
-            html5QrCode.start(camId, {fps:10, qrbox:250}, (decodedText)=>{
-                scanInput.value = decodedText; const evt = new KeyboardEvent('keydown',{key:'Enter'}); scanInput.dispatchEvent(evt);
-                html5QrCode.stop(); bsModal.hide(); modal.remove();
-            });
+
+    // Load ZXing UMD once
+    function ensureZXing(){
+        return new Promise((resolve)=>{
+            if(window.ZXing && window.ZXing.BrowserMultiFormatReader){ resolve(true); return; }
+            const s = document.createElement('script'); s.src='https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js'; s.onload=()=>resolve(true); document.body.appendChild(s);
         });
+    }
+    await ensureZXing();
+
+    const videoElem = modal.querySelector('#zxing-video');
+    // Restrict to common retail formats for faster, more reliable detection
+    const hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+        ZXing.BarcodeFormat.EAN_13,
+        ZXing.BarcodeFormat.EAN_8,
+        ZXing.BarcodeFormat.UPC_A,
+        ZXing.BarcodeFormat.UPC_E,
+        ZXing.BarcodeFormat.CODE_128,
+        ZXing.BarcodeFormat.CODE_39
+    ]);
+    const codeReader = new ZXing.BrowserMultiFormatReader(hints);
+    let timeoutId = null;
+    let running = true;
+
+    async function stop(){
+        if(!running) return; running = false;
+        try{ codeReader.reset(); }catch(_){ }
+    }
+    modal.addEventListener('hidden.bs.modal', stop, { once: true });
+
+    let devices = [];
+    try{ devices = await codeReader.listVideoInputDevices(); }catch(_){ devices = []; }
+    if(!devices.length){
+        const hint = document.getElementById('scanHint');
+        hint.className='alert alert-warning py-2';
+        hint.textContent = 'No camera detected.';
+        return;
+    }
+    const backCam = devices.find(d => /back|rear|environment/i.test(d.label));
+    const camId = (backCam || devices[0]).deviceId;
+
+    timeoutId = setTimeout(async ()=>{
+        if(!running) return;
+        await stop();
+        const hint = document.getElementById('scanHint');
+        hint.className='alert alert-warning py-2';
+        hint.textContent = 'No barcode detected, try again.';
+    }, 10000);
+
+    // Prefer constraints with environment-facing camera when available
+    const constraints = { video: { deviceId: { exact: camId }, facingMode: 'environment' } };
+    const cb = async (result, err) => {
+        if(!running) return;
+        if(result){
+            clearTimeout(timeoutId);
+            const code = result.getText();
+            // Try backend lookup to auto-fill
+            try{
+                const resp = await fetch('/product/scan', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ barcode: code })});
+                if(resp.ok){
+                    const data = await resp.json();
+                    // Pick matching option or create a temp option
+                    let matched = false;
+                    for(const opt of productSelect.options){ if(opt.dataset && opt.dataset.barcode === data.barcode){ productSelect.value = opt.value; matched = true; break; } }
+                    if(!matched){
+                        // fallback: select by name substring
+                        for(const opt of productSelect.options){ if(opt.text.includes(data.name)){ productSelect.value = opt.value; matched = true; break; } }
+                    }
+                    if(matched){
+                        const sel = productSelect.options[productSelect.selectedIndex];
+                        document.getElementById('availableStock').textContent = sel.dataset.stock || (data.quantity ?? '-');
+                        document.getElementById('price').value = sel.dataset.markedPrice || (data.marked_price ?? '');
+                        document.getElementById('priceRange').textContent = `KES ${sel.dataset.markedPrice || (data.marked_price ?? '-')}`;
+                        updateSummary();
+                    }
+                    // success → close
+                    await stop(); bsModal.hide(); modal.remove();
+                } else {
+                    // Not found → keep modal open, show Add new with barcode prefill
+                    const hint = document.getElementById('scanHint');
+                    hint.className='alert alert-warning py-2 d-flex justify-content-between align-items-center';
+                    hint.querySelector('span').textContent = 'Product not found. Add new?';
+                    const addLink = document.getElementById('addNewLink');
+                    addLink.classList.remove('d-none');
+                    addLink.href = `/employee/products/add?barcode=${encodeURIComponent(code)}`;
+                }
+            }catch(_){ /* ignore */ }
+        } else if (err && !(err instanceof ZXing.NotFoundException)) {
+            const hint = document.getElementById('scanHint');
+            hint.className='alert alert-warning py-2';
+            hint.textContent = 'Camera error. Check permissions and lighting.';
+        }
     };
+    try {
+        await codeReader.decodeFromConstraints(constraints, videoElem, cb);
+    } catch(e1) {
+        try {
+            await codeReader.decodeFromVideoDevice(camId, videoElem, cb);
+        } catch(e2) {
+            const hint = document.getElementById('scanHint');
+            hint.className='alert alert-danger py-2';
+            if (e2 && e2.name === 'NotAllowedError') {
+                hint.textContent = 'Permission denied. Please allow camera access and retry.';
+            } else if (e2 && e2.name === 'NotFoundError') {
+                hint.textContent = 'No usable camera found.';
+            } else {
+                hint.textContent = 'Unable to start camera. Try reloading the page.';
+            }
+        }
+    }
 });
 </script>
 {% endblock %}

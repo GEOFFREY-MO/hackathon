@@ -90,6 +90,33 @@ def product_list():
                            shop=shop,
                            inventory_items=inventory_items)
 
+@employee_bp.route('/product/scan', methods=['POST'])
+@login_required
+def employee_scan_product():
+    """Employee-scope product scan. Looks up by barcode and returns product and current shop stock."""
+    try:
+        payload = request.get_json(silent=True) or {}
+        barcode = (payload.get('barcode') or '').strip()
+        if not barcode:
+            return jsonify({'error': 'No barcode provided'}), 400
+
+        product = Product.query.filter_by(barcode=barcode).first()
+        if not product:
+            return jsonify({'error': 'Product not found'}), 404
+
+        inventory = Inventory.query.filter_by(product_id=product.id, shop_id=current_user.shop_id).first()
+        return jsonify({
+            'id': product.id,
+            'name': product.name,
+            'barcode': product.barcode,
+            'category': product.category,
+            'marked_price': product.marked_price,
+            'quantity': inventory.quantity if inventory else 0
+        })
+    except Exception as e:
+        current_app.logger.error(f"Scan error: {str(e)}")
+        return jsonify({'error': 'Error processing barcode'}), 500
+
 
 @employee_bp.route('/products/add', methods=['GET', 'POST'])
 @login_required
@@ -131,12 +158,13 @@ def add_product():
                 )
                 db.session.add(inventory)
         else:
-            # Create new product
+            # Create new product for current shop
             product = Product(
                 name=name,
                 barcode=barcode,
                 category=category,
-                marked_price=marked_price
+                marked_price=marked_price,
+                shop_id=shop.id
             )
             db.session.add(product)
             db.session.flush()  # Get the product ID
@@ -153,10 +181,11 @@ def add_product():
         flash('Product added successfully!', 'success')
         return redirect(url_for('employee.product_list'))
 
-    # Create a form object for GET request
+    # Create a form object for GET request (prefill barcode if provided)
+    prefill_barcode = request.args.get('barcode', '').strip()
     form = {
         'name': '',
-        'barcode': '',
+        'barcode': prefill_barcode,
         'category': '',
         'marked_price': '',
         'quantity': ''
