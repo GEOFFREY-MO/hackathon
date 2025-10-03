@@ -1,8 +1,25 @@
 # SmartRetail AI
 
-A comprehensive retail management system with AI-powered analytics and inventory management.
+SmartRetail AI is a retail operations and analytics platform that combines POS workflows, inventory management, services, expenses, and an embedded AI assistant with OCR chart understanding. It is mobile-friendly, supports barcode scanning, and degrades gracefully to on-database insights when cloud AI is unavailable.
 
-## Deployment Guide
+Founders: Geofrey Mokami (Founder), Francis Muthengi (Co‑founder), Kefa Mwita (Co‑founder)
+
+## Features
+
+- POS and inventory with barcode scanning
+- Services and provider assignments, expense tracking, financial accounts
+- AI assistant (OpenAI/Gemini) embedded on every page via floating chat
+- OCR (Tesseract + OpenCV): capture/select charts and auto-explain in plain English
+- Responsive UI with off‑canvas navigation and dark mode
+
+## Tech Stack
+
+- Backend: Flask, SQLAlchemy, Flask‑Login, Flask‑Migrate
+- Frontend: Bootstrap 5, React (optional future UI), TypeScript ready
+- AI/OCR: OpenAI/Gemini, Tesseract OCR, OpenCV, Pillow
+- DB: SQLite by default; Postgres recommended for production
+
+## Quick Start (Local)
 
 ### Prerequisites
 - Python 3.8 or higher
@@ -30,8 +47,11 @@ pip install -r requirements.txt
 
 4. Set up environment variables:
 ```bash
-cp .env.example .env
-# Edit .env with your configuration
+copy NUL .env  # Windows
+echo SECRET_KEY=dev > .env
+echo FLASK_ENV=development >> .env
+echo DATABASE_URL=sqlite:///smartretail.db >> .env
+# Add OPENAI_API_KEY or GEMINI_API_KEY if available
 ```
 
 5. Initialize the database:
@@ -129,4 +149,4 @@ pg_dump -U username database_name > backup.sql
 
 ## Support
 
-For support, please contact support@smartretailai.com 
+For support, please open an issue in this repository or contact the maintainers.
