@@ -488,15 +488,7 @@
                         const s = document.createElement('div'); s.className='scanner-star scanner-decor'; s.style.left = Math.random()*100+'%'; s.style.top = Math.random()*100+'%'; s.style.setProperty('--twinkle', (0.9+Math.random()*1.2)+'s'); box.appendChild(s);
                     }
                     document.body.appendChild(box);
-                    // Optional: subtle stars on dimmed outside segments
-                    const addStarsTo = (seg)=>{
-                        const rect = seg.getBoundingClientRect();
-                        for(let i=0;i<12;i++){
-                            const s=document.createElement('div'); s.className='scanner-star scanner-decor';
-                            s.style.left = (Math.random()*rect.width)+'px'; s.style.top=(Math.random()*rect.height)+'px'; s.style.position='absolute'; s.style.setProperty('--twinkle', (0.9+Math.random()*1.2)+'s'); seg.appendChild(s);
-                        }
-                    };
-                    segments.forEach(addStarsTo);
+                    // No star effects in the dimmed outside segments to keep magic animation scoped to the captured area only
                 }
                 const text = document.createElement('div'); text.className='scanner-text scanner-decor'; text.textContent='Scanning…'; document.body.appendChild(text);
                 return { overlay, box, text, segments };
