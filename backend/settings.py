@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify
-from backend.database import db, Settings, Shop, User
+from database import db, Settings, Shop, User
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import logging
 

@@ -220,10 +220,117 @@ body.login-page {
 /* Custom styles for SmartRetail AI */
 
 /* General styles */
+:root {
+    /* Royal Purple + Cyan (light, premium) */
+    --bs-primary: #5B3CC4;
+    --bs-secondary: #7C4DFF;
+    --bs-success: #16A34A;
+    --bs-warning: #F59E0B;
+    --bs-info: #00C2FF;
+
+    --app-bg: #F6F7FB;
+    --app-surface: #FFFFFF;
+    --app-text: #0B0F19;
+    --app-text-muted: #667085;
+    --app-border: #E6E8EE;
+}
+
+[data-theme="dark"] {
+    /* Dark variant for purple theme */
+    --bs-primary: #7C4DFF;
+    --bs-secondary: #A78BFA;
+    --bs-success: #22C55E;
+    --bs-warning: #F59E0B;
+    --bs-info: #22D3EE;
+
+    --app-bg: #0E0A1F;
+    --app-surface: #16132B;
+    --app-text: #E5E7EB;
+    --app-text-muted: #B3B8D4;
+    --app-border: #26233F;
+}
+
 body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    background-color: var(--app-bg);
+    color: var(--app-text);
+}
+
+/* Headings: ensure strong contrast on light/dark themes */
+h1, h2, h3, h4, h5, h6,
+.display-1, .display-2, .display-3, .display-4,
+.page-title, .section-title, .card-title {
+    color: var(--app-text) !important;
+}
+
+/* Improve light theme readability */
+.text-muted { color: var(--app-text-muted) !important; }
+.card, .card .card-text { color: var(--app-text); }
+.card-header, .modal-header, .offcanvas-header {
+    background-color: var(--app-surface);
+    color: var(--app-text);
+    border-bottom: 1px solid var(--app-border);
+}
+.table th, .table td { color: var(--app-text); }
+label, .form-label { color: var(--app-text); }
+a { color: var(--bs-primary); }
+
+/* Buttons use theme primary */
+.btn-primary {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
+}
+.btn-primary:hover {
+    filter: brightness(0.95);
+}
+
+/* Form focus ring uses theme primary */
+.form-control:focus {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.25rem rgba(91, 60, 196, 0.25);
+}
+
+/* Alerts: better contrast in light mode */
+.alert-info, .alert-primary {
+    color: var(--app-text);
+    border-color: var(--app-border);
+}
+
+/* Force heading text to dark in light mode, keep current in dark mode */
+body:not([data-theme="dark"]) h1.text-white,
+body:not([data-theme="dark"]) h2.text-white,
+body:not([data-theme="dark"]) h3.text-white,
+body:not([data-theme="dark"]) h4.text-white,
+body:not([data-theme="dark"]) h5.text-white,
+body:not([data-theme="dark"]) h6.text-white {
+    color: var(--app-text) !important;
+}
+body:not([data-theme="dark"]) .card-header .text-white,
+body:not([data-theme="dark"]) .modal-header .text-white,
+body:not([data-theme="dark"]) .offcanvas-header .text-white {
+    color: var(--app-text) !important;
+}
+body:not([data-theme="dark"]) .text-white-50 { color: var(--app-text-muted) !important; }
+
+/* Neutralize gradient header backgrounds in light mode for readability */
+body:not([data-theme="dark"]) .bg-gradient-primary,
+body:not([data-theme="dark"]) .bg-gradient-success,
+body:not([data-theme="dark"]) .bg-gradient-info,
+body:not([data-theme="dark"]) .bg-gradient-warning,
+body:not([data-theme="dark"]) .bg-gradient-danger {
+    background: var(--app-surface) !important;
+    color: var(--app-text) !important;
+}
+/* Override inline gradient styles on header-like containers */
+body:not([data-theme="dark"]) .border-bottom[style*="linear-gradient("] {
+    background: var(--app-surface) !important;
+    color: var(--app-text) !important;
+}
+body:not([data-theme="dark"]) .sidebar-header[style*="linear-gradient("] {
+    background: var(--app-surface) !important;
+    color: var(--app-text) !important;
 }
 
 main {
@@ -233,6 +340,8 @@ main {
 /* Card hover effects */
 .card {
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    background-color: var(--app-surface);
+    border-color: var(--app-border);
 }
 
 .card:hover {
@@ -242,7 +351,7 @@ main {
 
 /* Table styles */
 .table th {
-    background-color: #f8f9fa;
+    background-color: var(--app-surface);
 }
 
 /* Button styles */
@@ -275,13 +384,15 @@ main {
 /* Footer styles */
 .footer {
     margin-top: auto;
-    background-color: #f8f9fa;
+    background-color: var(--app-surface);
+    color: var(--app-text-muted);
     padding: 1rem 0;
 }
 
 /* Navigation styles */
 .navbar {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    background-color: var(--bs-primary) !important;
 }
 
 .navbar-brand {
@@ -313,5 +424,26 @@ main {
     
     .card {
         margin-bottom: 1rem;
+    }
+
+    /* Mobile navbar spacing */
+    body {
+        padding-top: 56px;
+    }
+
+    .navbar .navbar-brand {
+        font-size: 1rem;
+    }
+
+    .navbar .nav-link {
+        padding-top: .5rem;
+        padding-bottom: .5rem;
+    }
+}
+
+/* Hamburger alignment for very small screens */
+@media (max-width: 360px) {
+    .navbar .navbar-brand {
+        font-size: .95rem;
     }
 }

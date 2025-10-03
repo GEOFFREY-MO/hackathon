@@ -1,7 +1,7 @@
 from flask import Flask
 from flask_migrate import Migrate
 from database.models import db
-from backend.config import Config
+from config import Config
 
 def init_db():
     app = Flask(__name__)

@@ -6,32 +6,34 @@ from dotenv import load_dotenv
 from pathlib import Path
 from werkzeug.security import generate_password_hash
 from datetime import datetime
-from backend.database import db, User, Shop, Product, Inventory, UnscannedSale
-from backend.commands import create_test_shop, verify_database, check_database, reset_database, create_default_resources
+from database import db, User, Shop, Product, Inventory, UnscannedSale
+from commands import create_test_shop, verify_database, check_database, reset_database, create_default_resources
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from backend.config import config
+from config import config
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_socketio import SocketIO
 from logging.handlers import RotatingFileHandler
-from backend.admin import admin_bp
-from backend.auth import auth_bp
-from backend.shop import shop_bp
-from backend.product import product_bp
-from backend.inventory import inventory_bp
-from backend.sale import sale_bp
-from backend.service import service_bp
-from backend.resource import resource_bp
-from backend.expense import expense_bp
-from backend.analytics import analytics_bp
-from backend.notification import notification_bp
-from backend.report import report_bp
-from backend.settings import settings_bp
-from backend.websocket import websocket_bp
+from admin import admin_bp
+from auth import auth_bp
+from employee import employee_bp
+from shop import shop_bp
+from product import product_bp
+from inventory import inventory_bp
+from sale import sale_bp
+from service import service_bp
+from resource import resource_bp
+from expense import expense_bp
+from analytics import analytics_bp
+from report import report_bp
+from settings import settings_bp
+from websocket import websocket_bp
+from ai_analytics import ai_analytics_bp
 
-# Load environment variables
-load_dotenv()
+# Load environment variables unless explicitly skipped
+if not os.getenv("FLASK_SKIP_DOTENV"):
+    load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -74,6 +76,7 @@ def create_app(config_name='default'):
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(shop_bp, url_prefix='/shop')
+    app.register_blueprint(employee_bp, url_prefix='/employee')
     app.register_blueprint(product_bp, url_prefix='/product')
     app.register_blueprint(inventory_bp, url_prefix='/inventory')
     app.register_blueprint(sale_bp, url_prefix='/sale')
@@ -81,10 +84,10 @@ def create_app(config_name='default'):
     app.register_blueprint(resource_bp, url_prefix='/resource')
     app.register_blueprint(expense_bp, url_prefix='/expense')
     app.register_blueprint(analytics_bp, url_prefix='/analytics')
-    app.register_blueprint(notification_bp, url_prefix='/notification')
     app.register_blueprint(report_bp, url_prefix='/report')
     app.register_blueprint(settings_bp, url_prefix='/settings')
     app.register_blueprint(websocket_bp, url_prefix='/ws')
+    app.register_blueprint(ai_analytics_bp, url_prefix='/ai_analytics')
 
     # Initialize database
     with app.app_context():
@@ -93,19 +96,7 @@ def create_app(config_name='default'):
             db.create_all()
             logger.info("Database tables created successfully.")
 
-            # Check if default shop exists
-            default_shop = Shop.query.filter_by(name="Main Store").first()
-            if not default_shop:
-                default_shop = Shop(
-                    name="Main Store",
-                    location="123 Main Street, City Center",
-                    created_at=datetime.utcnow()
-                )
-                db.session.add(default_shop)
-                db.session.commit()
-                logger.info("Default shop created successfully.")
-
-            # Check if admin user exists
+            # Ensure default admin user exists FIRST
             admin = User.query.filter_by(email="admin@smartretail.com").first()
             if not admin:
                 admin = User(
@@ -117,6 +108,38 @@ def create_app(config_name='default'):
                 db.session.add(admin)
                 db.session.commit()
                 logger.info("Default admin user created successfully.")
+
+            # Ensure default shop exists and is owned by admin
+            default_shop = Shop.query.filter_by(name="Main Store").first()
+            if not default_shop:
+                default_shop = Shop(
+                    name="Main Store",
+                    location="123 Main Street, City Center",
+                    admin_id=admin.id,
+                    created_at=datetime.utcnow()
+                )
+                db.session.add(default_shop)
+                db.session.commit()
+                logger.info("Default shop created successfully.")
+
+            # Ensure a default employee exists for testing
+            employee = User.query.filter_by(email="employee@smartretail.com").first()
+            if not employee:
+                employee = User(
+                    name="Employee User",
+                    email="employee@smartretail.com",
+                    password_hash=generate_password_hash("employee123"),
+                    role="employee",
+                    shop_id=default_shop.id,
+                    admin_id=admin.id
+                )
+                db.session.add(employee)
+                db.session.commit()
+                logger.info("Default employee user created successfully.")
+
+            # Log test credentials for convenience (development only)
+            logger.info("Test Admin → email: admin@smartretail.com, password: admin123")
+            logger.info("Test Employee → email: employee@smartretail.com, password: employee123")
 
             logger.info("✅ Database initialized successfully with default data.")
         except Exception as e:

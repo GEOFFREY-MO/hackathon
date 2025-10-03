@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from backend.database import db, Resource, ShopResource, Shop, User, ResourceCategory, ResourceHistory, ResourceAlert
+from database import db, Resource, ShopResource, Shop, User, ResourceCategory, ResourceHistory, ResourceAlert
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
 import logging

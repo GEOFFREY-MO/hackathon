@@ -9,6 +9,10 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts: Poppins -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- html2canvas for OCR screen capture -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     {% block extra_css %}{% endblock %}
@@ -22,6 +26,7 @@
         }
         body {
             padding-top: 56px;
+            font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
         }
         .navbar-dark .navbar-nav .nav-link {
             color: rgba(255, 255, 255, 0.9) !important;
@@ -38,16 +43,144 @@
             color: #ffffff !important;
             font-weight: 600;
         }
+
+        /* Hide legacy fixed sidebars across pages */
+        .sidebar, .bg-gradient-primary.sidebar { display: none !important; }
+        /* Reset inline-offset headers that assumed a fixed sidebar */
+        [style*="left: 16.666667%"] { left: 0 !important; }
+        [style*="width: calc(100% - 16.666667%)"] { width: 100% !important; }
+        [style*="background: linear-gradient(45deg, #4e73df, #224abe)"] { background: transparent !important; }
+
+        /* Floating Assistant */
+        .assistant-fab {
+            position: fixed;
+            right: 16px;
+            bottom: 16px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--bs-primary);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+            cursor: pointer;
+            z-index: 1050;
+        }
+        .assistant-panel {
+            position: fixed;
+            right: 16px;
+            bottom: 84px;
+            width: 360px;
+            max-width: calc(100% - 32px);
+            height: 60vh;
+            background: var(--app-surface);
+            color: var(--app-text);
+            border-radius: 12px;
+            box-shadow: 0 10px 24px rgba(0,0,0,.18);
+            display: none;
+            flex-direction: column;
+            z-index: 1050;
+            box-sizing: border-box;
+        }
+        .assistant-panel.show { display: flex; }
+        .assistant-header {
+            padding: 10px 12px;
+            background: var(--bs-primary);
+            color: #fff;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .assistant-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0; }
+        .assistant-messages { flex: 1; overflow-y: auto; border: 1px solid var(--app-border); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 8px; max-height: 100%; word-break: break-word; overflow-wrap: anywhere; }
+        .assistant-msg { margin: 0; padding: 8px 10px; box-sizing: border-box; border-radius: 12px; max-width: 85%; }
+        .assistant-msg strong { white-space: nowrap; margin-right: 4px; }
+        .assistant-msg.assistant-msg-user { align-self: flex-end; background: var(--bs-primary); color: #ffffff; border: none; box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
+        .assistant-msg.assistant-msg-ai { align-self: flex-start; background: var(--app-surface); color: var(--app-text); border: 1px solid var(--app-border); }
+        [data-theme="dark"] .assistant-msg.assistant-msg-ai { background: #1f2337; border-color: #2a2f45; color: #e5e7eb; }
+        .assistant-msg ul, .assistant-msg ol { padding-left: 1.2rem; margin: 0.25rem 0; }
+        .assistant-msg li { margin: 0.1rem 0; }
+        .assistant-input input { min-width: 0; }
+        .assistant-input { display: flex; gap: 6px; }
+        .assistant-input input { flex: 1; }
+        .assistant-toolbar .btn { --bs-btn-padding-y: .25rem; --bs-btn-padding-x: .5rem; }
+
+        /* Scanner overlay and animations */
+        .scanner-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.15);
+            backdrop-filter: blur(1px);
+            z-index: 2000;
+            pointer-events: none;
+        }
+        .scanner-overlay-segment { position: fixed; background: rgba(0,0,0,0.15); backdrop-filter: blur(1px); z-index: 2000; pointer-events: none; }
+        .scanner-box {
+            position: fixed;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+            border: 2px solid rgba(124,77,255,0.75);
+            animation: scannerGlow 1.6s ease-in-out infinite;
+        }
+        .scanner-fill {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(124,77,255,0.18) 0%, rgba(0,194,255,0.18) 50%, rgba(124,77,255,0.18) 100%);
+            background-size: 200% 200%;
+            animation: scannerSweep 1.8s linear infinite;
+        }
+        .scanner-line {
+            position: absolute;
+            left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(34,197,94,0.95), transparent);
+            animation: scannerLine 1.2s linear infinite;
+            box-shadow: 0 0 6px rgba(34,197,94,0.75), 0 0 12px rgba(34,197,94,0.5);
+        }
+        .scanner-text {
+            position: fixed;
+            left: 50%; transform: translateX(-50%);
+            bottom: 24px;
+            background: rgba(15,15,25,0.75);
+            color: #e5e7eb;
+            padding: 6px 12px; border-radius: 999px;
+            font-size: 12px; letter-spacing: .3px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+        /* (buttons removed for auto-process flow) */
+        .scanner-star { position: absolute; width: calc(3px + 0.2mm); height: calc(3px + 0.2mm); border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(124,77,255,0.85) 50%, rgba(124,77,255,0) 70%); box-shadow: 0 0 6px rgba(124,77,255,0.8), 0 0 12px rgba(0,194,255,0.6); animation: twinkle var(--twinkle,1.2s) ease-in-out infinite; }
+        @keyframes twinkle { 0%,100% { opacity: 0.25; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.15);} }
+        @keyframes scannerSweep {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes scannerGlow {
+            0%,100% { box-shadow: 0 6px 18px rgba(124,77,255,0.25); }
+            50% { box-shadow: 0 10px 24px rgba(0,194,255,0.35); }
+        }
+        @keyframes scannerLine {
+            0% { top: 0; }
+            100% { top: calc(100% - 2px); }
+        }
     </style>
 </head>
 <body>
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('index') }}">
+            <div class="d-flex align-items-center gap-2">
+                <!-- Sidebar toggle (visible on all screens) -->
+                <button class="btn btn-sm btn-outline-light me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#appSidebar" aria-controls="appSidebar" title="Toggle menu">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <a class="navbar-brand" href="{{ url_for('index') }}">
                 <i class="fas fa-store"></i> SmartRetail AI
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                </a>
+            </div>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             
@@ -106,6 +239,11 @@
                 </ul>
                 {% if current_user.is_authenticated %}
                     <ul class="navbar-nav">
+                        <li class="nav-item d-flex align-items-center me-2">
+                            <button id="themeToggle" class="btn btn-sm btn-outline-light" type="button" title="Toggle theme">
+                                <i class="fas fa-moon"></i>
+                            </button>
+                        </li>
                         <li class="nav-item">
                             <span class="nav-link">
                                 <i class="fas fa-user"></i> {{ current_user.name }}
@@ -121,6 +259,37 @@
             </div>
         </div>
     </nav>
+
+    <!-- Offcanvas Sidebar (can be hidden to create space) -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="appSidebar" aria-labelledby="appSidebarLabel">
+        <div class="offcanvas-header bg-primary text-white">
+            <h5 class="offcanvas-title" id="appSidebarLabel"><i class="fas fa-store me-2"></i>SmartRetail AI</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body p-0">
+            <div class="list-group list-group-flush">
+                {% if current_user.is_authenticated %}
+                    {% if current_user.role == 'admin' %}
+                        <a class="list-group-item list-group-item-action" href="{{ url_for('admin.dashboard') }}"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a>
+                        <a class="list-group-item list-group-item-action" href="{{ url_for('admin.manage_shops') }}"><i class="fas fa-store me-2"></i>Shops</a>
+                        <a class="list-group-item list-group-item-action" href="{{ url_for('admin.manage_users') }}"><i class="fas fa-users me-2"></i>Users</a>
+                        <a class="list-group-item list-group-item-action" href="{{ url_for('admin.accounts') }}"><i class="fas fa-chart-line me-2"></i>Accounts</a>
+                        <a class="list-group-item list-group-item-action" href="{{ url_for('admin.manage_resources') }}"><i class="fas fa-boxes me-2"></i>Resources</a>
+                        <a class="list-group-item list-group-item-action" href="{{ url_for('admin.analytics') }}"><i class="fas fa-chart-bar me-2"></i>Analytics</a>
+                    {% elif current_user.role == 'employee' %}
+                        <a class="list-group-item list-group-item-action" href="{{ url_for('employee.dashboard') }}"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a>
+                        <a class="list-group-item list-group-item-action" href="{{ url_for('employee.product_list') }}"><i class="fas fa-box me-2"></i>Inventory</a>
+                        <a class="list-group-item list-group-item-action" href="{{ url_for('employee.resources') }}"><i class="fas fa-boxes me-2"></i>Resources</a>
+                        <a class="list-group-item list-group-item-action" href="{{ url_for('employee.sales_list') }}"><i class="fas fa-receipt me-2"></i>Sales</a>
+                        <a class="list-group-item list-group-item-action" href="{{ url_for('employee.analytics') }}"><i class="fas fa-chart-bar me-2"></i>Analytics</a>
+                    {% endif %}
+                    <a class="list-group-item list-group-item-action" href="{{ url_for('auth.logout') }}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a>
+                {% else %}
+                    <a class="list-group-item list-group-item-action" href="{{ url_for('auth.select_role') }}"><i class="fas fa-sign-in-alt me-2"></i>Login</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
 
     <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -154,5 +323,250 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Custom JS -->
     {% block extra_js %}{% endblock %}
+
+    <!-- Floating Assistant UI -->
+    <div id="assistantFab" class="assistant-fab" title="AI Assistant">
+        <i class="fas fa-robot"></i>
+    </div>
+    <div id="assistantPanel" class="assistant-panel">
+        <div class="assistant-header">
+            <div class="d-flex align-items-center gap-2">
+                <i class="fas fa-robot"></i>
+                <span>AI Assistant</span>
+            </div>
+            <button type="button" class="btn btn-sm btn-light" id="assistantClose"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="assistant-body">
+            <div class="assistant-toolbar d-flex gap-2 flex-wrap">
+                <select id="assistantShop" class="form-select form-select-sm" style="min-width: 160px;"></select>
+                <button class="btn btn-sm btn-outline-primary" id="assistantCapture"><i class="fas fa-wand-magic-sparkles me-1"></i> Capture</button>
+                <button class="btn btn-sm btn-outline-primary" id="assistantSelect"><i class="fas fa-crosshairs me-1"></i> Select</button>
+            </div>
+            <div id="assistantMessages" class="assistant-messages"></div>
+            <div class="assistant-input">
+                <input id="assistantInput" type="text" class="form-control" placeholder="Ask for insights..." />
+                <button id="assistantSend" class="btn btn-primary"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function(){
+            // Theme initialization
+            const saved = localStorage.getItem('app-theme');
+            if(saved){ document.documentElement.setAttribute('data-theme', saved); }
+
+            const fab = document.getElementById('assistantFab');
+            const panel = document.getElementById('assistantPanel');
+            const closeBtn = document.getElementById('assistantClose');
+            const shopSel = document.getElementById('assistantShop');
+            const msgBox = document.getElementById('assistantMessages');
+            const input = document.getElementById('assistantInput');
+            const sendBtn = document.getElementById('assistantSend');
+            const btnCapture = document.getElementById('assistantCapture');
+            const btnSelect = document.getElementById('assistantSelect');
+            let currentShopId = null;
+
+            function escapeHtml(s){
+                return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            }
+            function renderMarkdown(src){
+                let text = escapeHtml(src);
+                // Underline ++text++
+                text = text.replace(/\+\+([^\n]+?)\+\+/g, '<u>$1</u>');
+                // Bold **text**
+                text = text.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+                // Italic *text* or _text_
+                text = text.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+                text = text.replace(/_([^_\n]+)_/g, '<em>$1</em>');
+                // Lists
+                const lines = text.split(/\r?\n/);
+                let out = '';
+                let mode = null; // 'ul' | 'ol'
+                for(let i=0;i<lines.length;i++){
+                    let line = lines[i];
+                    const ulMatch = /^\s*[-\*]\s+(.+)$/.exec(line);
+                    const olMatch = /^\s*(\d+)\.\s+(.+)$/.exec(line);
+                    if(ulMatch){
+                        if(mode !== 'ul'){ if(mode==='ol'){ out += '</ol>'; } out += '<ul>'; mode = 'ul'; }
+                        out += '<li>'+ulMatch[1]+'</li>';
+                    } else if(olMatch){
+                        if(mode !== 'ol'){ if(mode==='ul'){ out += '</ul>'; } out += '<ol>'; mode = 'ol'; }
+                        out += '<li>'+olMatch[2]+'</li>';
+                    } else {
+                        if(mode==='ul'){ out += '</ul>'; mode=null; }
+                        if(mode==='ol'){ out += '</ol>'; mode=null; }
+                        if(line.trim().length){ out += '<p style="margin:0 0 4px 0">'+line+'</p>'; }
+                    }
+                }
+                if(mode==='ul') out += '</ul>'; if(mode==='ol') out += '</ol>';
+                return out || text;
+            }
+            function addMsg(sender, text){
+                const div = document.createElement('div');
+                div.className = (sender==='You' ? 'assistant-msg assistant-msg-user' : 'assistant-msg assistant-msg-ai');
+                div.innerHTML = '<strong>'+escapeHtml(sender)+':</strong> ' + renderMarkdown(text);
+                msgBox.appendChild(div); msgBox.scrollTop = msgBox.scrollHeight;
+            }
+
+            async function loadShops(){
+                try{
+                    const res = await fetch('/admin/api/my-shops');
+                    const shops = await res.json();
+                    shopSel.innerHTML = '';
+                    if(Array.isArray(shops) && shops.length){
+                        shops.forEach(s=>{ const o=document.createElement('option'); o.value=s.id; o.textContent=s.name; shopSel.appendChild(o); });
+                        currentShopId = shops[0].id;
+                    } else {
+                        const o=document.createElement('option'); o.value=''; o.textContent='No shops'; shopSel.appendChild(o);
+                    }
+                }catch(e){ /* ignore */ }
+            }
+
+            async function sendMessage(){
+                const text = input.value.trim(); if(!text) return;
+                addMsg('You', text); input.value='';
+                if(!currentShopId){ addMsg('AI Assistant','Select a shop first.'); return; }
+                try{
+                    const r = await fetch('/ai_analytics/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,shop_id:currentShopId})});
+                    const data = await r.json();
+                    addMsg('AI Assistant', data.response || 'No response');
+                }catch(e){ addMsg('AI Assistant','Error contacting AI service.'); }
+            }
+
+            function createScanner(targetEl){
+                let overlay = null;
+                let segments = [];
+                // Build overlay that avoids the assistant panel (no blur over chat)
+                if(!targetEl){
+                    const ap = document.getElementById('assistantPanel');
+                    const r = ap && ap.classList.contains('show') ? ap.getBoundingClientRect() : null;
+                    const vw = window.innerWidth, vh = window.innerHeight;
+                    const makeSeg = (left,top,width,height)=>{ const seg=document.createElement('div'); seg.className='scanner-overlay-segment scanner-decor'; seg.style.left=left+'px'; seg.style.top=top+'px'; seg.style.width=width+'px'; seg.style.height=height+'px'; document.body.appendChild(seg); segments.push(seg); };
+                    // Limit capture to main content area only (avoid irrelevant tabs/side regions)
+                    const main = document.querySelector('main.container') || document.body;
+                    const mr = main.getBoundingClientRect();
+                    // build darkened outside segments around main rect
+                    makeSeg(0,0,vw,mr.top); // top outside
+                    makeSeg(0,mr.top,mr.left,mr.height); // left outside
+                    makeSeg(mr.right,mr.top,vw-mr.right,mr.height); // right outside
+                    makeSeg(0,mr.bottom,vw,vh-mr.bottom); // bottom outside
+                }
+
+                // Scanner box (for selected element or main content on capture)
+                let box;
+                if(targetEl){
+                    const r = targetEl.getBoundingClientRect();
+                    box = document.createElement('div');
+                    box.className = 'scanner-box scanner-decor';
+                    box.style.left = r.left+ 'px';
+                    box.style.top = r.top + 'px';
+                    box.style.width = r.width + 'px';
+                    box.style.height = r.height + 'px';
+                    const fill = document.createElement('div'); fill.className = 'scanner-fill scanner-decor'; box.appendChild(fill);
+                    const line = document.createElement('div'); line.className = 'scanner-line scanner-decor'; box.appendChild(line);
+                    // Magic stars
+                    const stars = Math.min(30, Math.max(10, Math.floor((r.width*r.height)/8000)));
+                    for(let i=0;i<stars;i++){
+                        const s = document.createElement('div'); s.className='scanner-star scanner-decor'; s.style.left = Math.random()*100+'%'; s.style.top = Math.random()*100+'%'; s.style.setProperty('--twinkle', (0.9+Math.random()*1.2)+'s'); box.appendChild(s);
+                    }
+                    document.body.appendChild(box);
+                } else {
+                    // Build a scanner box over the main content area (capture)
+                    const mainEl = document.querySelector('main.container') || document.body;
+                    const r = mainEl.getBoundingClientRect();
+                    box = document.createElement('div');
+                    box.className = 'scanner-box scanner-decor';
+                    box.style.left = r.left+ 'px';
+                    box.style.top = r.top + 'px';
+                    box.style.width = r.width + 'px';
+                    box.style.height = r.height + 'px';
+                    const fill = document.createElement('div'); fill.className = 'scanner-fill scanner-decor'; box.appendChild(fill);
+                    const line = document.createElement('div'); line.className = 'scanner-line scanner-decor'; box.appendChild(line);
+                    const stars = Math.min(40, Math.max(15, Math.floor((r.width*r.height)/9000)));
+                    for(let i=0;i<stars;i++){
+                        const s = document.createElement('div'); s.className='scanner-star scanner-decor'; s.style.left = Math.random()*100+'%'; s.style.top = Math.random()*100+'%'; s.style.setProperty('--twinkle', (0.9+Math.random()*1.2)+'s'); box.appendChild(s);
+                    }
+                    document.body.appendChild(box);
+                    // Optional: subtle stars on dimmed outside segments
+                    const addStarsTo = (seg)=>{
+                        const rect = seg.getBoundingClientRect();
+                        for(let i=0;i<12;i++){
+                            const s=document.createElement('div'); s.className='scanner-star scanner-decor';
+                            s.style.left = (Math.random()*rect.width)+'px'; s.style.top=(Math.random()*rect.height)+'px'; s.style.position='absolute'; s.style.setProperty('--twinkle', (0.9+Math.random()*1.2)+'s'); seg.appendChild(s);
+                        }
+                    };
+                    segments.forEach(addStarsTo);
+                }
+                const text = document.createElement('div'); text.className='scanner-text scanner-decor'; text.textContent='Scanning…'; document.body.appendChild(text);
+                return { overlay, box, text, segments };
+            }
+
+            function updateScannerText(scan, msg){ if(scan && scan.text){ scan.text.textContent = msg; } }
+            function removeScanner(scan){ if(!scan) return; [scan.overlay, scan.box, scan.text].forEach(n=>{ if(n && n.parentNode) n.parentNode.removeChild(n); }); if(scan.segments){ scan.segments.forEach(n=>{ if(n && n.parentNode) n.parentNode.removeChild(n); }); } }
+
+            async function capture(el){
+                const scan = createScanner(el);
+                try{
+                    updateScannerText(scan,'Scanning…');
+                    // Auto-process immediately, limited to main content area if no element is provided
+                    const root = el || (document.querySelector('main.container') || document.body);
+                    const canvas = await html2canvas(root,{
+                        useCORS:true,
+                        backgroundColor:'#ffffff',
+                        ignoreElements: (elem)=>{
+                            return (elem.classList && elem.classList.contains('scanner-decor')) || elem.id==='assistantPanel' || elem.id==='assistantFab';
+                        },
+                        scrollY: -window.scrollY,
+                        scrollX: -window.scrollX
+                    });
+                    updateScannerText(scan,'Processing…');
+                    const blob = await new Promise(r=> canvas.toBlob(b=> r(b), 'image/png', 0.92));
+                    const f=new FormData(); f.append('file',blob,'capture.png'); if(currentShopId) f.append('shop_id', currentShopId);
+                    const resp=await fetch('/ai_analytics/api/ai/upload-chart',{method:'POST',body:f});
+                    const data = await resp.json();
+                    return data;
+                } finally { removeScanner(scan); }
+            }
+
+            function enableSelect(){
+                const hc='assistant-ocr-highlight'; const st=document.createElement('style'); st.textContent='.'+hc+'{outline:2px dashed var(--bs-primary) !important; cursor:crosshair !important;}'; document.head.appendChild(st);
+                function over(e){ e.target.classList.add(hc); }
+                function out(e){ e.target.classList.remove(hc); }
+                async function click(e){ e.preventDefault(); e.stopPropagation();
+                    document.removeEventListener('mouseover',over,true); document.removeEventListener('mouseout',out,true); document.removeEventListener('click',click,true);
+                    try{ const data = await capture(e.target); if(data && data.analysis){ addMsg('You','++Selection captured++. Interpreting…'); if(data.analysis.ai_interpretation) addMsg('AI Assistant', data.analysis.ai_interpretation); else addMsg('AI Assistant','Processed selection.'); }
+                    }catch(err){ addMsg('AI Assistant','Capture failed.'); }
+                    document.querySelectorAll('.'+hc).forEach(el=>el.classList.remove(hc)); if(st.parentNode) st.parentNode.removeChild(st);
+                }
+                document.addEventListener('mouseover',over,true); document.addEventListener('mouseout',out,true); document.addEventListener('click',click,true);
+                addMsg('AI Assistant','Select a chart/section to analyze.');
+            }
+
+            fab.addEventListener('click', ()=>{ panel.classList.toggle('show'); if(panel.classList.contains('show')){ loadShops(); if(!msgBox.dataset.welcomed){ addMsg('AI Assistant','Hello! Ask me anything or use Capture/Select for OCR insights.'); msgBox.dataset.welcomed='1'; } } });
+            closeBtn.addEventListener('click', ()=> panel.classList.remove('show'));
+            shopSel.addEventListener('change', e=> currentShopId = e.target.value || null);
+            sendBtn.addEventListener('click', sendMessage);
+            input.addEventListener('keypress', e=>{ if(e.key==='Enter'){ sendMessage(); }});
+            btnCapture.addEventListener('click', async ()=>{ const data=await capture(); if(data && data.analysis){ addMsg('You','++Screen captured++. Interpreting…'); const formatted = (data.analysis && data.analysis.formatted) ? data.analysis.formatted : null; if(formatted) addMsg('AI Assistant', formatted); if(data.analysis.ai_interpretation) addMsg('AI Assistant', data.analysis.ai_interpretation); else if(!formatted) addMsg('AI Assistant','Capture processed.'); }});
+            btnSelect.addEventListener('click', enableSelect);
+
+            // Theme toggle
+            const themeBtn = document.getElementById('themeToggle');
+            if(themeBtn){
+                themeBtn.addEventListener('click', ()=>{
+                    const cur = document.documentElement.getAttribute('data-theme');
+                    const next = cur === 'dark' ? '' : 'dark';
+                    if(next){ document.documentElement.setAttribute('data-theme', next); }
+                    else { document.documentElement.removeAttribute('data-theme'); }
+                    localStorage.setItem('app-theme', next);
+                    themeBtn.innerHTML = next==='dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+                });
+                // Sync icon with saved
+                const cur = document.documentElement.getAttribute('data-theme');
+                themeBtn.innerHTML = cur==='dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+            }
+        })();
+    </script>
 </body>
 </html> 

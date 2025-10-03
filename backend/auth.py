@@ -4,7 +4,7 @@ from flask import Blueprint, render_template, redirect, request, url_for, flash,
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 import re
-from backend.database import db, User, Shop
+from database import db, User, Shop
 from datetime import datetime
 import logging
 
@@ -94,15 +94,26 @@ def employee_login():
 def register():
     if request.method == 'POST':
         try:
-            name = request.form.get('name')
-            email = request.form.get('email')
+            name = (request.form.get('name') or '').strip()
+            email = (request.form.get('email') or '').strip().lower()
             password = request.form.get('password')
-            role = request.form.get('role')
+            confirm_password = request.form.get('confirm_password')
+            role = (request.form.get('role') or '').strip()
             shop_id = request.form.get('shop_id')
 
             # Validate required fields
             if not all([name, email, password, role]):
                 flash('All fields are required.', 'danger')
+                return redirect(url_for('auth.register'))
+
+            # Validate email format
+            if not is_valid_email(email):
+                flash('Please enter a valid email address.', 'danger')
+                return redirect(url_for('auth.register'))
+
+            # Validate password confirmation
+            if password != (confirm_password or ''):
+                flash('Passwords do not match.', 'danger')
                 return redirect(url_for('auth.register'))
 
             # Check if email already exists
@@ -111,29 +122,29 @@ def register():
                 return redirect(url_for('auth.register'))
 
             if role == 'admin':
-                # For new admin, create their first shop
-                shop = Shop(
-                    name=f"{name}'s Shop",
-                    location="To be updated",
-                    admin_id=None  # Will be set after user creation
-                )
-                db.session.add(shop)
-                db.session.flush()  # Get the shop ID
-
-                # Create admin user
+                # Create admin user first to satisfy NOT NULL constraint on shop.admin_id
                 user = User(
                     name=name,
                     email=email,
                     password_hash=generate_password_hash(password),
                     role='admin',
-                    shop_id=shop.id,
-                    admin_id=None  # Admins don't have an admin
+                    shop_id=None,
+                    admin_id=None
                 )
                 db.session.add(user)
-                db.session.flush()  # Get the user ID
+                db.session.flush()  # to get user.id
 
-                # Update shop with admin_id
-                shop.admin_id = user.id
+                # Create the first shop owned by this admin
+                shop = Shop(
+                    name=f"{name}'s Shop",
+                    location="To be updated",
+                    admin_id=user.id
+                )
+                db.session.add(shop)
+                db.session.flush()  # to get shop.id
+
+                # Link user to shop
+                user.shop_id = shop.id
 
             else:  # role == 'employee'
                 # For employees, verify shop and admin

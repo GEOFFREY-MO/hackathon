@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, flash, Response, redirect, url_for, request, jsonify, send_file, current_app
 from flask_login import login_required, current_user
-from backend.database.models import Shop, Product, Inventory, User, db, Sale, Service, ServiceSale, Resource, ShopResource, Expense, ResourceHistory, ResourceAlert, ResourceCategory, ServiceCategory, FinancialRecord
+from database.models import Shop, Product, Inventory, User, db, Sale, Service, ServiceSale, Resource, ShopResource, Expense, ResourceHistory, ResourceAlert, ResourceCategory, ServiceCategory, FinancialRecord
 from io import StringIO
 import csv
 from datetime import datetime, timedelta
@@ -39,6 +39,13 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
+@admin_bp.route('/ai-assistant')
+@login_required
+@admin_required
+def ai_assistant():
+    """AI Assistant page for retail analytics"""
+    return render_template('admin/ai_assistant.html')
 
 @admin_bp.route('/dashboard')
 @login_required
@@ -99,6 +106,9 @@ def dashboard():
             Sale.shop_id.in_([shop.id for shop in shops])
         ).order_by(Sale.sale_date.desc()).limit(5).all()
         
+        # Derived metrics expected by template
+        average_sale = float(total_sales) / total_sale_count if total_sale_count > 0 else 0.0
+
         return render_template('admin/dashboard.html',
                              shops=shops,
                              shop_data=shop_data,
@@ -107,11 +117,28 @@ def dashboard():
                              total_inventory=total_inventory,
                              total_employees=total_employees,
                              total_sale_count=total_sale_count,
+                             average_sale=average_sale,
                              recent_sales=recent_sales)
     except Exception as e:
         current_app.logger.error(f"Error in dashboard: {str(e)}", exc_info=True)
         flash('An error occurred while loading the dashboard.', 'error')
         return redirect(url_for('auth.select_role'))
+
+
+@admin_bp.route('/api/my-shops')
+@login_required
+@admin_required
+def api_my_shops():
+    """Return shops owned by current admin as JSON for selectors."""
+    try:
+        shops = Shop.query.filter_by(admin_id=current_user.id).all()
+        return jsonify([
+            { 'id': s.id, 'name': s.name, 'location': s.location }
+            for s in shops
+        ])
+    except Exception as e:
+        current_app.logger.error(f"Error fetching admin shops: {str(e)}", exc_info=True)
+        return jsonify({ 'error': 'Failed to load shops' }), 500
 
 
 @admin_bp.route('/dashboard/recent-sales')

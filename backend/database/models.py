@@ -19,8 +19,8 @@ class Shop(db.Model):
     products = db.relationship('Product', lazy=True)
     services = db.relationship('Service', lazy=True)
     resources = db.relationship('Resource', backref='shop', lazy=True)
-    expenses = db.relationship('Expense', lazy=True)
-    financial_records = db.relationship('FinancialRecord', lazy=True)
+    expenses = db.relationship('Expense', back_populates='shop', lazy=True)
+    financial_records = db.relationship('FinancialRecord', back_populates='shop', lazy=True)
 
     def __repr__(self):
         return f'<Shop {self.name}>'
@@ -123,6 +123,7 @@ class Service(db.Model):
     # Relationships
     shop = db.relationship('Shop', lazy=True)
     category = db.relationship('ServiceCategory', backref=db.backref('services', lazy=True))
+    providers = db.relationship('ServiceProvider', backref='service', lazy=True, cascade='all, delete-orphan')
 
     def __repr__(self):
         return f'<Service {self.name}>'
@@ -177,6 +178,20 @@ class Resource(db.Model):
     def __repr__(self):
         return f'<Resource {self.name}>'
 
+class ServiceProvider(db.Model):
+    """Assignment table linking services to employee providers."""
+    __tablename__ = 'service_provider'
+    id = db.Column(db.Integer, primary_key=True)
+    service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=False)
+    employee_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    provider = db.relationship('User', lazy=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('service_id', 'employee_id', name='uq_service_employee'),
+    )
+
 class ShopResource(db.Model):
     """Model for tracking resources in each shop."""
     id = db.Column(db.Integer, primary_key=True)
@@ -227,7 +242,7 @@ class Expense(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     
     # Relationships
-    shop = db.relationship('Shop', backref=db.backref('expenses', lazy=True))
+    shop = db.relationship('Shop', back_populates='expenses')
     creator = db.relationship('User', backref=db.backref('created_expenses', lazy=True))
 
     def __repr__(self):
@@ -298,7 +313,7 @@ class FinancialRecord(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     
     # Relationships
-    shop = db.relationship('Shop', backref=db.backref('financial_records', lazy=True))
+    shop = db.relationship('Shop', back_populates='financial_records')
     creator = db.relationship('User', backref=db.backref('created_financial_records', lazy=True))
     
     def __repr__(self):

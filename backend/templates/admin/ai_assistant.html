@@ -1,429 +1,316 @@
-<!-- AI Assistant Container -->
-<div class="ai-assistant-container">
-    <button class="ai-assistant-button" id="aiAssistantButton">
-        <i class="fas fa-robot"></i>
-    </button>
-    
-    <!-- AI Assistant Chat Window -->
-    <div class="ai-assistant-window" id="aiAssistantWindow">
-        <div class="ai-assistant-header">
-            <div class="d-flex align-items-center">
-                <i class="fas fa-robot text-primary me-2"></i>
-                <h5 class="mb-0">AI Assistant</h5>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant - SmartRetail AI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-robot me-2"></i>AI Assistant</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <h6 class="mb-2">Chat with AI Assistant</h6>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <label for="shopSelect" class="form-label mb-0 small">Shop</label>
+                                        <select id="shopSelect" class="form-select form-select-sm" style="min-width: 160px;"></select>
+                                    </div>
+                                </div>
+                                <div id="chatMessages" style="height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px;">
+                                    <div class="alert alert-info">
+                                        <strong>AI Assistant:</strong> Hello! I'm your AI retail analytics assistant. How can I help you today?
+                                    </div>
             </div>
-            <div class="ai-assistant-controls">
-                <button class="btn btn-sm btn-link" id="minimizeAssistant">
-                    <i class="fas fa-minus"></i>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="messageInput" placeholder="Ask me anything about your shop's performance...">
+                                    <button class="btn btn-primary" onclick="sendMessage()">
+                                        <i class="fas fa-paper-plane"></i>
                 </button>
             </div>
         </div>
-        
-        <div class="ai-assistant-content">
-            <!-- Chat Section -->
-            <div class="chat-section">
-                <div class="chat-messages" id="chatMessages">
-                    <div class="message ai-message">
-                        <div class="message-content">
-                            Hello! I'm your AI Assistant. I can help you with:
-                            <ul>
-                                <li>Sales analysis and comparisons</li>
-                                <li>Performance reports</li>
-                                <li>Shop comparisons</li>
-                                <li>Time-based analytics</li>
-                                <li>General business insights</li>
-                            </ul>
-                            How can I assist you today?
+                            <div class="col-md-6">
+                                <h6>Upload Chart for Analysis</h6>
+                                <div class="d-flex gap-2 mb-2 flex-wrap">
+                                    <button class="btn btn-sm btn-outline-primary" id="btnCaptureScreen">
+                                        <i class="fas fa-wand-magic-sparkles me-1"></i> Capture screen
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary" id="btnSelectElement">
+                                        <i class="fas fa-crosshairs me-1"></i> Select chart
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" id="btnAutoOCR">
+                                        <i class="fas fa-sync-alt me-1"></i> Auto (5s)
+                                    </button>
+                                </div>
+                                <div class="upload-area" id="uploadArea" style="border: 2px dashed #2F80ED; border-radius: 10px; padding: 40px; text-align: center; cursor: pointer;">
+                                    <i class="fas fa-cloud-upload-alt fa-2x mb-2"></i>
+                                    <p class="mb-0">Drop chart image here or click to upload</p>
+                                    <input type="file" id="chartUpload" accept="image/*" style="display: none;">
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-                <div class="chat-input-container">
-                    <div class="chat-input">
-                        <input type="text" id="chatInput" placeholder="Ask me anything about your business...">
-                        <button id="sendMessage">
-                            <i class="fas fa-paper-plane"></i>
-                        </button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-{% block ai_assistant_scripts %}
+    <!-- Removed page-local floating OCR toggle in favor of global assistant -->
+
 <script>
+        let currentShopId = {{ current_user.shop_id if current_user.shop_id else 'null' }};
+        
 document.addEventListener('DOMContentLoaded', function() {
-    const aiButton = document.getElementById('aiAssistantButton');
-    const aiWindow = document.getElementById('aiAssistantWindow');
-    const minimizeButton = document.getElementById('minimizeAssistant');
-    const chatInput = document.getElementById('chatInput');
-    const sendButton = document.getElementById('sendMessage');
-    const chatMessages = document.getElementById('chatMessages');
-
-    // Toggle AI Assistant window
-    aiButton.addEventListener('click', function() {
-        aiWindow.classList.toggle('active');
-        if (aiWindow.classList.contains('active')) {
-            chatInput.focus();
-        }
-    });
-
-    // Minimize AI Assistant window
-    minimizeButton.addEventListener('click', function() {
-        aiWindow.classList.remove('active');
-    });
-
-    // Send message
-    function sendMessage() {
-        const message = chatInput.value.trim();
-        if (message) {
-            // Disable input while processing
-            chatInput.disabled = true;
-            sendButton.disabled = true;
-
-            // Add user message
-            addMessage(message, 'user');
-            chatInput.value = '';
-
-            // Send message to server
-            fetch('/admin/ai-assistant', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify({ message })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    addMessage(data.response, 'ai');
-                } else {
-                    throw new Error(data.response || 'Failed to get response');
+            setupFileUpload();
+            bootstrapShopSelector();
+        });
+        
+        function setupFileUpload() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('chartUpload');
+            
+            uploadArea.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFileUpload(e.target.files[0]);
                 }
-            })
-            .catch(error => {
-                console.error('AI Assistant Error:', error);
-                addMessage('Sorry, I encountered an error. Please try again.', 'ai');
-            })
-            .finally(() => {
-                // Re-enable input and focus
-                chatInput.disabled = false;
-                sendButton.disabled = false;
-                chatInput.focus();
             });
         }
-    }
 
-    // Add message to chat
-    function addMessage(text, type) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${type}-message`;
+        async function bootstrapShopSelector(){
+            const sel = document.getElementById('shopSelect');
+            try {
+                const res = await fetch('/admin/api/my-shops');
+                const shops = await res.json();
+                sel.innerHTML = '';
+                if (Array.isArray(shops) && shops.length){
+                    shops.forEach(s => {
+                        const opt = document.createElement('option');
+                        opt.value = s.id; opt.textContent = s.name;
+                        sel.appendChild(opt);
+                    });
+                    currentShopId = shops[0].id;
+        } else {
+                    const opt = document.createElement('option');
+                    opt.value = ''; opt.textContent = 'No shops';
+                    sel.appendChild(opt);
+                    addMessage('AI Assistant', 'No shops found for your account. Please create a shop first.', 'ai');
+                }
+                sel.addEventListener('change', (e)=>{
+                    currentShopId = e.target.value || null;
+                });
+            } catch(e){
+                addMessage('AI Assistant', 'Failed to load shops. Please refresh.', 'ai');
+            }
+        }
         
-        if (type === 'ai') {
-            messageDiv.innerHTML = `
-                <div class="message-content typing">
-                    <div class="typing-indicator">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                    </div>
-                </div>
-            `;
+        async function handleFileUpload(file) {
+            if (!currentShopId) {
+                alert('Please select a shop first');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('shop_id', currentShopId);
+            
+            try {
+                const response = await fetch('/ai_analytics/api/ai/upload-chart', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.analysis) {
+                    displayChartAnalysis(data.analysis);
+                } else {
+                    addMessage('AI Assistant', 'Sorry, I couldn\'t analyze that chart. Please try with a clearer image.', 'ai');
+                }
+            } catch (error) {
+                addMessage('AI Assistant', 'Error analyzing chart. Please try again.', 'ai');
+                console.error('Error uploading chart:', error);
+            }
+        }
+        
+        function displayChartAnalysis(analysis) {
+            let message = 'I\'ve analyzed your chart:\n\n';
+            
+            if (analysis.chart_type) {
+                message += `Chart Type: ${analysis.chart_type}\n`;
+            }
+            if (analysis.title) {
+                message += `Title: ${analysis.title}\n`;
+            }
+            if (analysis.insights && analysis.insights.length > 0) {
+                message += '\nKey Insights:\n';
+                analysis.insights.forEach(insight => {
+                    message += `• ${insight}\n`;
+                });
+            }
+            if (analysis.ai_interpretation) {
+                message += `\nAI Interpretation:\n${analysis.ai_interpretation}`;
+            }
+            
+            addMessage('AI Assistant', message, 'ai');
+        }
+        
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            addMessage('You', message, 'user');
+            input.value = '';
+            
+            if (!currentShopId) {
+                addMessage('AI Assistant', 'Please select a shop first to get personalized insights.', 'ai');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/ai_analytics/api/ai/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        shop_id: currentShopId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.response) {
+                    addMessage('AI Assistant', data.response, 'ai');
+                } else {
+                    addMessage('AI Assistant', 'Sorry, I encountered an error. Please try again.', 'ai');
+                }
+            } catch (error) {
+                addMessage('AI Assistant', 'Error connecting to AI service. Please try again.', 'ai');
+                console.error('Error sending message:', error);
+            }
+        }
+        
+        function addMessage(sender, message, type) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `alert ${type === 'user' ? 'alert-primary' : 'alert-info'}`;
+            
+            const senderSpan = document.createElement('strong');
+            senderSpan.textContent = sender + ': ';
+            messageDiv.appendChild(senderSpan);
+            
+            const messageText = document.createElement('span');
+            messageText.textContent = message;
+            messageDiv.appendChild(messageText);
+            
             chatMessages.appendChild(messageDiv);
-            scrollToBottom();
-
-            setTimeout(() => {
-                messageDiv.innerHTML = `
-                    <div class="message-content">
-                        ${text}
-                    </div>
-                `;
-                scrollToBottom();
-            }, 1000);
-        } else {
-            messageDiv.innerHTML = `
-                <div class="message-content">
-                    ${text}
-                </div>
-            `;
-            chatMessages.appendChild(messageDiv);
-            scrollToBottom();
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         }
-    }
 
-    function scrollToBottom() {
-        const chatMessages = document.getElementById('chatMessages');
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    // Add scroll event listener to handle auto-scroll
-    document.getElementById('chatMessages').addEventListener('scroll', function() {
-        const isNearBottom = this.scrollHeight - this.scrollTop - this.clientHeight < 50;
-        if (isNearBottom) {
-            this.dataset.autoScroll = 'true';
-        } else {
-            this.dataset.autoScroll = 'false';
+        // ---------- OCR helpers ----------
+        async function uploadBlobToOCR(blob) {
+            const form = new FormData();
+            form.append('file', blob, 'capture.png');
+            form.append('shop_id', currentShopId);
+            const resp = await fetch('/ai_analytics/api/ai/upload-chart', { method: 'POST', body: form });
+            return await resp.json();
         }
-    });
 
-    // Event listeners for chat
-    sendButton.addEventListener('click', sendMessage);
-    chatInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
+        async function captureScreenAndAnalyze() {
+            const canvas = await html2canvas(document.body, {useCORS: true, backgroundColor: '#ffffff'});
+            return new Promise((resolve) => {
+                canvas.toBlob(async (blob) => {
+                    const data = await uploadBlobToOCR(blob);
+                    resolve(data);
+                }, 'image/png', 0.92);
+            });
         }
-    });
 
-    // Focus input when window is opened
-    aiWindow.addEventListener('transitionend', function() {
-        if (aiWindow.classList.contains('active')) {
-            chatInput.focus();
+        function enableElementSelectAndAnalyze() {
+            const highlightClass = 'ocr-highlight';
+            const style = document.createElement('style');
+            style.textContent = `.${highlightClass}{ outline: 2px dashed #2F80ED !important; cursor: crosshair !important; }`;
+            document.head.appendChild(style);
+
+            function mouseOver(e){ e.target.classList.add(highlightClass); }
+            function mouseOut(e){ e.target.classList.remove(highlightClass); }
+            async function onClick(e){
+                e.preventDefault(); e.stopPropagation();
+                document.removeEventListener('mouseover', mouseOver, true);
+                document.removeEventListener('mouseout', mouseOut, true);
+                document.removeEventListener('click', onClick, true);
+                try {
+                    const target = e.target;
+                    const canvas = await html2canvas(target, {useCORS: true, backgroundColor: '#ffffff'});
+                    canvas.toBlob(async (blob) => {
+                        const data = await uploadBlobToOCR(blob);
+                        if (data && data.analysis) {
+                            displayChartAnalysis(data.analysis);
+                            if (data.analysis.ai_interpretation) {
+                                addMessage('AI Assistant', data.analysis.ai_interpretation, 'ai');
+                            }
+                        } else {
+                            addMessage('AI Assistant', 'No useful text detected from the selected element.', 'ai');
+                        }
+                    }, 'image/png', 0.92);
+                } catch(err){
+                    addMessage('AI Assistant', 'Element capture failed. Try another area.', 'ai');
+                } finally {
+                    document.querySelectorAll('.'+highlightClass).forEach(el=>el.classList.remove(highlightClass));
+                    if (style.parentNode) style.parentNode.removeChild(style);
+                }
+            }
+            document.addEventListener('mouseover', mouseOver, true);
+            document.addEventListener('mouseout', mouseOut, true);
+            document.addEventListener('click', onClick, true);
+            addMessage('AI Assistant', 'Element select mode: hover and click on the chart to analyze.', 'ai');
         }
-    });
-});
-</script>
-{% endblock %}
 
-{% block ai_assistant_styles %}
-<style>
-/* AI Assistant Styles */
-.ai-assistant-container {
-    position: fixed;
-    bottom: 2rem;
-    right: 2rem;
-    z-index: 1000;
-}
+        // Buttons wiring
+        (function initOcrButtons(){
+            const btnScreen = document.getElementById('btnCaptureScreen');
+            const btnSelect = document.getElementById('btnSelectElement');
+            const btnAuto = document.getElementById('btnAutoOCR');
+            let autoTimer = null;
+            if (btnScreen) btnScreen.addEventListener('click', async ()=>{
+                if (!currentShopId) { addMessage('AI Assistant', 'Select a shop first.', 'ai'); return; }
+                const data = await captureScreenAndAnalyze();
+                if (data && data.analysis) { displayChartAnalysis(data.analysis); if (data.analysis.ai_interpretation) addMessage('AI Assistant', data.analysis.ai_interpretation, 'ai'); }
+            });
+            if (btnSelect) btnSelect.addEventListener('click', ()=>{
+                if (!currentShopId) { addMessage('AI Assistant', 'Select a shop first.', 'ai'); return; }
+                enableElementSelectAndAnalyze();
+            });
+            if (btnAuto) btnAuto.addEventListener('click', ()=>{
+                if (!currentShopId) { addMessage('AI Assistant', 'Select a shop first.', 'ai'); return; }
+                if (autoTimer){
+                    clearInterval(autoTimer); autoTimer=null; btnAuto.classList.remove('btn-success'); btnAuto.classList.add('btn-outline-secondary'); btnAuto.innerHTML='<i class="fas fa-sync-alt me-1"></i> Auto (5s)';
+                } else {
+                    btnAuto.classList.remove('btn-outline-secondary'); btnAuto.classList.add('btn-success'); btnAuto.innerHTML='<i class="fas fa-stop me-1"></i> Stop Auto';
+                    autoTimer = setInterval(async ()=>{
+                        const data = await captureScreenAndAnalyze();
+                        if (data && data.analysis) { displayChartAnalysis(data.analysis); }
+                    }, 5000);
+                }
+            });
+        })();
 
-.ai-assistant-button {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background: linear-gradient(45deg, #4e73df, #224abe);
-    border: none;
-    color: white;
-    font-size: 1.5rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    cursor: pointer;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.ai-assistant-button:hover {
-    transform: scale(1.1);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-}
-
-.ai-assistant-window {
-    position: fixed;
-    bottom: 5rem;
-    right: 2rem;
-    width: 400px;
-    height: 600px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-    display: none;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-.ai-assistant-window.active {
-    display: flex;
-}
-
-.ai-assistant-header {
-    padding: 1rem;
-    background: white;
-    border-bottom: 1px solid #eee;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.ai-assistant-controls {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.ai-assistant-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-.chat-section {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background: #f8f9fa;
-    position: relative;
-    height: 100%;
-}
-
-.chat-messages {
-    flex: 1;
-    padding: 1rem;
-    overflow-y: auto;
-    scroll-behavior: smooth;
-    max-height: calc(100% - 80px); /* Reserve space for input area */
-    position: relative;
-}
-
-.chat-input-container {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: white;
-    border-top: 1px solid #eee;
-    padding: 1rem;
-    z-index: 10;
-}
-
-.chat-input {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-}
-
-.chat-input input {
-    flex: 1;
-    padding: 0.75rem;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    outline: none;
-    transition: border-color 0.2s ease;
-    background: white;
-}
-
-.chat-input input:focus {
-    border-color: #4e73df;
-}
-
-.chat-input input:disabled {
-    background-color: #f8f9fa;
-    cursor: not-allowed;
-}
-
-.chat-input button {
-    width: 40px;
-    height: 40px;
-    border: none;
-    background: #4e73df;
-    color: white;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.chat-input button:hover:not(:disabled) {
-    background: #224abe;
-}
-
-.chat-input button:disabled {
-    background-color: #6c757d;
-    cursor: not-allowed;
-}
-
-/* Message Styles */
-.message {
-    margin-bottom: 1rem;
-    display: flex;
-    flex-direction: column;
-    animation: fadeIn 0.3s ease-in-out;
-}
-
-.message:last-child {
-    margin-bottom: 0;
-}
-
-.message.user-message {
-    align-items: flex-end;
-}
-
-.message.ai-message {
-    align-items: flex-start;
-}
-
-.message-content {
-    padding: 0.75rem 1rem;
-    border-radius: 12px;
-    max-width: 80%;
-    word-wrap: break-word;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-.user-message .message-content {
-    background: #4e73df;
-    color: white;
-}
-
-.ai-message .message-content {
-    background: white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.ai-message .message-content ul {
-    margin-bottom: 0;
-    padding-left: 1.2rem;
-}
-
-/* Typing Indicator */
-.typing-indicator {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 0.5rem;
-}
-
-.typing-indicator span {
-    width: 8px;
-    height: 8px;
-    background: #4e73df;
-    border-radius: 50%;
-    animation: typing 1s infinite ease-in-out;
-}
-
-.typing-indicator span:nth-child(2) {
-    animation-delay: 0.2s;
-}
-
-.typing-indicator span:nth-child(3) {
-    animation-delay: 0.4s;
-}
-
-@keyframes typing {
-    0%, 100% {
-        transform: translateY(0);
-    }
-    50% {
-        transform: translateY(-5px);
-    }
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Responsive Adjustments */
-@media (max-width: 768px) {
-    .ai-assistant-window {
-        width: calc(100% - 2rem);
-        height: calc(100% - 6rem);
-        bottom: 5rem;
-        right: 1rem;
-    }
-}
-</style>
-{% endblock %} 
+        // OCR Toggle and Screen Capture -> upload to backend and feed chat
+        // OCR toggle removed; use global assistant in base layout
+    </script>
+</body>
+</html>

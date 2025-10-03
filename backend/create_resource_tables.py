@@ -7,7 +7,7 @@ from sqlalchemy import inspect
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.app import app, db
-from backend.database.models import ResourceHistory, ResourceAlert, ResourceCategory
+from database.models import ResourceHistory, ResourceAlert, ResourceCategory
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

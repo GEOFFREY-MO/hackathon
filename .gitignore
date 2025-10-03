@@ -22,6 +22,7 @@ wheels/
 
 # Virtual Environment
 venv/
+venv_linux/
 ENV/
 env/
 
@@ -45,6 +46,12 @@ env/
 # Local development
 instance/
 .cursor/
+
+# Uploads
+uploads/
+uploads/**
+backend/uploads/
+backend/uploads/**
 
 # System Files
 .DS_Store

@@ -5,43 +5,10 @@
 {% block content %}
 <div class="container-fluid">
     <div class="row">
-        <!-- Sidebar -->
-        <nav class="col-md-3 col-lg-2 d-md-block bg-gradient-primary sidebar" style="position: fixed; top: 3rem; left: 0; height: calc(100vh - 3rem); overflow-y: auto; z-index: 1001; background: linear-gradient(45deg, #4e73df, #224abe);">
-            <div class="position-sticky">
-                <div class="sidebar-header mb-4 px-3 pt-4" style="background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem;">
-                    <h5 class="text-white mb-0" style="font-weight: 600;">
-                        <i class="fas fa-user-shield me-2"></i>Employee Panel
-                    </h5>
-                </div>
-                <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('employee.dashboard') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
-                            <i class="fas fa-tachometer-alt"></i> Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="{{ url_for('employee.new_sale') }}" style="font-weight: 600; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
-                            <i class="fas fa-cash-register"></i> New Sale
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('employee.product_list') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
-                            <i class="fas fa-box"></i> Products
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('employee.sales_list') }}" style="font-weight: 500; transition: all 0.3s ease; background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem; color: #ffffff;">
-                            <i class="fas fa-history"></i> Sales History
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </nav>
-
         <!-- Main content -->
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4" style="margin-left: 16.666667%;">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom" style="position: fixed; top: 2.5rem; right: 0; left: 16.666667%; background: linear-gradient(45deg, #4e73df, #224abe); z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 1rem;">
-                <h1 class="h2 text-white">New Sale</h1>
+        <main class="col-12 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom" style="position: sticky; top: 3.5rem; right: 0; left: 0; background: #fff; z-index: 1000; padding: 1rem;">
+                <h1 class="h2">New Sale</h1>
                 <div class="btn-toolbar mb-2 mb-md-0">
                     <a href="{{ url_for('employee.product_list') }}" class="btn btn-light">
                         <i class="fas fa-arrow-left"></i> Back to Products
@@ -49,7 +16,7 @@
                 </div>
             </div>
 
-            <div style="margin-top: 6rem;">
+            <div style="margin-top: 1rem;">
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
                         {% for category, message in messages %}
@@ -67,6 +34,18 @@
                             </div>
                             <div class="card-body">
                                 <form method="POST" action="{{ url_for('employee.new_sale') }}">
+                                    <!-- Barcode Scan / Keyboard Wedge -->
+                                    <div class="mb-3 d-flex gap-2 align-items-end">
+                                        <div class="flex-grow-1">
+                                            <label for="scan_barcode" class="form-label">Scan Barcode</label>
+                                            <input type="text" class="form-control" id="scan_barcode" placeholder="Focus here and scan...">
+                                            <div class="form-text">USB scanners act like a keyboard; this field captures the code and selects the product automatically.</div>
+                                        </div>
+                                        <div>
+                                            <button type="button" class="btn btn-outline-primary" id="btnOpenCamera"><i class="fas fa-camera"></i> Camera</button>
+                                        </div>
+                                    </div>
+
                                     <div class="mb-3">
                                         <label for="product_id" class="form-label">Select Product</label>
                                         <select class="form-select" id="product_id" name="product_id" required>
@@ -74,8 +53,9 @@
                                             {% for product in products %}
                                             <option value="{{ product.id }}" 
                                                     data-marked-price="{{ product.marked_price }}"
-                                                    data-stock="{{ product.inventory.quantity }}">
-                                                {{ product.name }} (KES {{ "%.2f"|format(product.marked_price) }})
+                                                    data-barcode="{{ product.barcode }}"
+                                                    data-stock="{{ product.inventory.quantity if product.inventory else 0 }}">
+                                                {{ product.name }} ({{ product.barcode }}) - KES {{ "%.2f"|format(product.marked_price) }}
                                             </option>
                                             {% endfor %}
                                         </select>
@@ -266,6 +246,40 @@
 
 {% block scripts %}
 <script>
+// Barcode scan handling (keyboard wedge)
+const scanInput = document.getElementById('scan_barcode');
+const productSelect = document.getElementById('product_id');
+scanInput.addEventListener('keydown', async function(e){
+    if(e.key === 'Enter'){
+        e.preventDefault();
+        const code = scanInput.value.trim();
+        if(!code) return;
+        // Try to match option by data-barcode first
+        let matched = false;
+        for(const opt of productSelect.options){
+            if (opt.dataset && opt.dataset.barcode === code){ productSelect.value = opt.value; matched = true; break; }
+        }
+        if(!matched){
+            // Fallback to backend lookup
+            try{
+                const resp = await fetch('/product/scan', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ barcode: code })});
+                if(resp.ok){ const data = await resp.json();
+                    for(const opt of productSelect.options){ if (opt.text.includes(data.name) || opt.dataset.barcode === data.barcode){ productSelect.value = opt.value; matched = true; break; } }
+                }
+            }catch(_){ /* ignore */ }
+        }
+        if(matched){
+            // Update price/stock UI
+            const sel = productSelect.options[productSelect.selectedIndex];
+            document.getElementById('availableStock').textContent = sel.dataset.stock || '-';
+            document.getElementById('price').value = sel.dataset.markedPrice || '';
+            document.getElementById('priceRange').textContent = `KES ${sel.dataset.markedPrice || '-'}`;
+            updateSummary();
+        }
+        scanInput.value = '';
+    }
+});
+
 document.getElementById('product_id').addEventListener('change', function() {
     const selectedOption = this.options[this.selectedIndex];
     const markedPrice = selectedOption.dataset.markedPrice;
@@ -291,6 +305,28 @@ function updateSummary() {
     document.getElementById('summaryPrice').textContent = `KES ${price}`;
     document.getElementById('summaryTotal').textContent = `KES ${(quantity * price).toFixed(2)}`;
 }
+
+// Camera barcode scanning via html5-qrcode
+document.getElementById('btnOpenCamera').addEventListener('click', async function(){
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `<div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title"><i class='fas fa-camera'></i> Scan Barcode</h5><button type='button' class='btn-close' data-bs-dismiss='modal'></button></div><div class='modal-body'><div id='qr-reader' style='width:100%'></div></div></div></div>`;
+    document.body.appendChild(modal);
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+    const script = document.createElement('script'); script.src = 'https://unpkg.com/html5-qrcode'; document.body.appendChild(script);
+    script.onload = () => {
+        const html5QrCode = new Html5Qrcode("qr-reader");
+        Html5Qrcode.getCameras().then(cams=>{
+            const camId = (cams && cams.length) ? cams[0].id : null;
+            if(!camId) return;
+            html5QrCode.start(camId, {fps:10, qrbox:250}, (decodedText)=>{
+                scanInput.value = decodedText; const evt = new KeyboardEvent('keydown',{key:'Enter'}); scanInput.dispatchEvent(evt);
+                html5QrCode.stop(); bsModal.hide(); modal.remove();
+            });
+        });
+    };
+});
 </script>
 {% endblock %}
 

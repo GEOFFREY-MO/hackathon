@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
 from flask_login import login_required, current_user
-from backend.database.models import db, Shop, Product, Inventory, Sale, Service, ServiceSale, User, Resource, ShopResource, ResourceUpdate, Expense, ResourceAlert, ResourceHistory, ServiceCategory, FinancialRecord
+from database.models import db, Shop, Product, Inventory, Sale, Service, ServiceSale, User, Resource, ShopResource, ResourceUpdate, Expense, ResourceAlert, ResourceHistory, ServiceCategory, FinancialRecord, ServiceProvider
 from datetime import datetime, timedelta
 import logging
 from sqlalchemy import func, desc, text
@@ -8,7 +8,7 @@ import pandas as pd
 from io import BytesIO
 from werkzeug.utils import send_file
 import json
-from backend.config import Config
+from config import Config
 from decimal import Decimal
 import xlsxwriter
 
@@ -948,16 +948,39 @@ def services():
         
         # Get all employees for the current shop
         employees = User.query.filter_by(shop_id=current_user.shop_id, role='employee').all()
+
+        # Build mapping of service -> allowed providers if assignments exist
+        service_id_to_employee_ids = {}
+        for sp in ServiceProvider.query.join(Service, ServiceProvider.service_id == Service.id).filter(Service.shop_id == current_user.shop_id).all():
+            service_id_to_employee_ids.setdefault(sp.service_id, set()).add(sp.employee_id)
         
         return render_template('employee/services.html',
                              services=services,
                              categories=categories,
-                             service_sales=service_sales,
-                             employees=employees)
+                            service_sales=service_sales,
+                            employees=employees)
     except Exception as e:
         current_app.logger.error(f"Error in services route: {str(e)}")
         flash('An error occurred while loading services.', 'error')
         return redirect(url_for('employee.dashboard'))
+
+@employee_bp.route('/services/providers')
+@login_required
+def service_providers_for_service():
+    """Return assigned provider IDs for a given service (scoped to current shop)."""
+    try:
+        service_id = request.args.get('service_id', type=int)
+        if not service_id:
+            return jsonify({ 'assigned': [] })
+        # Validate service belongs to the current shop
+        svc = Service.query.get(service_id)
+        if not svc or svc.shop_id != current_user.shop_id:
+            return jsonify({ 'assigned': [] })
+        assigned_ids = [sp.employee_id for sp in ServiceProvider.query.filter_by(service_id=service_id).all()]
+        return jsonify({ 'assigned': assigned_ids })
+    except Exception as e:
+        current_app.logger.error(f"Error fetching providers: {str(e)}")
+        return jsonify({ 'assigned': [] }), 500
 
 
 @employee_bp.route('/services/record', methods=['POST'])
@@ -1514,7 +1537,14 @@ def get_accounts_data():
         # Process records into daily data
         daily_data = {}
         for record in records:
-            date_str = record.date.strftime('%Y-%m-%d')
+            date_value = record.date
+            if isinstance(date_value, str):
+                date_str = date_value
+            else:
+                try:
+                    date_str = date_value.strftime('%Y-%m-%d')
+                except Exception:
+                    date_str = str(date_value)
             if date_str not in daily_data:
                 daily_data[date_str] = {
                     'date': date_str,
@@ -1528,7 +1558,14 @@ def get_accounts_data():
 
         # Process expenses
         for expense in expenses:
-            date_str = expense.date.strftime('%Y-%m-%d')
+            expense_date_value = expense.date
+            if isinstance(expense_date_value, str):
+                date_str = expense_date_value
+            else:
+                try:
+                    date_str = expense_date_value.strftime('%Y-%m-%d')
+                except Exception:
+                    date_str = str(expense_date_value)
             if date_str in daily_data:
                 daily_data[date_str]['expenses'] += float(expense.amount)
 
@@ -1550,7 +1587,9 @@ def get_accounts_data():
 
         # Format expenses for response
         expenses_data = [{
-            'date': expense.date.strftime('%Y-%m-%d'),
+            'date': (expense.date if isinstance(expense.date, str) else (
+                expense.date.strftime('%Y-%m-%d') if hasattr(expense.date, 'strftime') else str(expense.date)
+            )),
             'description': expense.description,
             'amount': float(expense.amount),
             'category': expense.category

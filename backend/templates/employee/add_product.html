@@ -47,65 +47,17 @@
 {% block content %}
 <div class="container-fluid">
     <div class="row">
-        <!-- Sidebar -->
-        <nav class="col-md-3 col-lg-2 d-md-block bg-gradient-primary sidebar" style="position: fixed; top: 3rem; left: 0; height: calc(100vh - 3rem); overflow-y: auto; z-index: 1001; background: linear-gradient(45deg, #4e73df, #224abe);">
-            <div class="position-sticky">
-                <div class="sidebar-header mb-4 px-3 pt-4" style="background: linear-gradient(45deg, #4e73df, #224abe); border-radius: 0.35rem; margin: 0.5rem;">
-                    <h5 class="text-white mb-0" style="font-weight: 600;">
-                        <i class="fas fa-user-shield me-2"></i>Employee Panel
-                    </h5>
-                </div>
-                <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('employee.dashboard') }}">
-                            <i class="fas fa-tachometer-alt"></i> Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('employee.new_sale') }}">
-                            <i class="fas fa-cash-register"></i> New Sale
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('employee.sales_list') }}">
-                            <i class="fas fa-history"></i> Sales History
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('employee.product_list') }}">
-                            <i class="fas fa-box"></i> Products
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('employee.services') }}">
-                            <i class="fas fa-tools"></i> Services
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('employee.analytics') }}">
-                            <i class="fas fa-chart-line"></i> Analytics
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('employee.resources') }}">
-                            <i class="fas fa-boxes"></i> Resources
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </nav>
-
         <!-- Main content -->
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+        <main class="col-12 px-md-4">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3" 
-                 style="position: fixed; top: 3rem; right: 0; left: 16.666667%; z-index: 1000; background: linear-gradient(45deg, #4e73df, #224abe); padding: 1rem 2rem; margin: 0; width: calc(100% - 16.666667%);">
+                 style="position: sticky; top: 3.5rem; right: 0; left: 0; z-index: 1000; background: #fff; padding: 1rem 2rem; margin: 0;">
                 <div class="d-flex align-items-center">
                     <div class="me-3">
                         <i class="fas fa-box fa-2x text-white"></i>
                     </div>
                     <div>
-                        <h1 class="h2 mb-0 text-white" style="font-weight: 600;">Add New Product</h1>
-                        <p class="text-white-50 mb-0">Create a new product in your inventory</p>
+                        <h1 class="h2 mb-0" style="font-weight: 600;">Add New Product</h1>
+                        <p class="text-muted mb-0">Create a new product in your inventory</p>
                     </div>
                 </div>
                 <div class="btn-toolbar mb-2 mb-md-0">
@@ -131,7 +83,11 @@
                             </div>
                                     <div class="mb-3">
                                 <label for="barcode" class="form-label">Barcode</label>
-                                        <input type="text" class="form-control" id="barcode" name="barcode" value="{{ form.barcode }}" required>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="barcode" name="barcode" value="{{ form.barcode }}" required>
+                                            <button type="button" class="btn btn-outline-primary" id="btnScanBarcode"><i class="fas fa-camera"></i></button>
+                                        </div>
+                                        <div class="form-text">Scan with USB scanner or use camera to detect.</div>
                             </div>
                                     <div class="mb-3">
                                 <label for="category" class="form-label">Category</label>
@@ -174,3 +130,27 @@
     </div>
 </div>
 {% endblock %} 
+
+{% block scripts %}
+{{ super() }}
+<script>
+// Camera scanning for add product
+document.getElementById('btnScanBarcode')?.addEventListener('click', function(){
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `<div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title"><i class='fas fa-camera'></i> Scan Barcode</h5><button type='button' class='btn-close' data-bs-dismiss='modal'></button></div><div class='modal-body'><div id='qr-reader' style='width:100%'></div></div></div></div>`;
+    document.body.appendChild(modal);
+    const bsModal = new bootstrap.Modal(modal); bsModal.show();
+    const script = document.createElement('script'); script.src = 'https://unpkg.com/html5-qrcode'; document.body.appendChild(script);
+    script.onload = () => {
+        const html5QrCode = new Html5Qrcode("qr-reader");
+        Html5Qrcode.getCameras().then(cams=>{
+            const camId = (cams && cams.length) ? cams[0].id : null; if(!camId) return;
+            html5QrCode.start(camId, {fps:10, qrbox:250}, (decodedText)=>{
+                document.getElementById('barcode').value = decodedText; html5QrCode.stop(); bsModal.hide(); modal.remove();
+            });
+        });
+    };
+});
+</script>
+{% endblock %}

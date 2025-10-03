@@ -19,9 +19,14 @@
     <!-- Top Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('employee.dashboard') }}">
-                <i class="fas fa-store"></i> SmartRetail AI
-            </a>
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-sm btn-outline-light me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#employeeSidebar" aria-controls="employeeSidebar" title="Toggle menu">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <a class="navbar-brand" href="{{ url_for('employee.dashboard') }}">
+                    <i class="fas fa-store"></i> SmartRetail AI
+                </a>
+            </div>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -57,54 +62,8 @@
 
     <div class="container-fluid">
         <div class="row">
-            <!-- Sidebar -->
-            <nav class="col-md-3 col-lg-2 d-md-block bg-white sidebar">
-                <div class="position-sticky">
-                    <div class="sidebar-header">
-                        <h5 class="text-primary mb-0">Employee Panel</h5>
-                    </div>
-                    <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('employee.dashboard') }}">
-                                <i class="fas fa-tachometer-alt"></i> Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('employee.new_sale') }}">
-                                <i class="fas fa-cash-register"></i> New Sale
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('employee.sales_list') }}">
-                                <i class="fas fa-history"></i> Sales History
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('employee.product_list') }}">
-                                <i class="fas fa-box"></i> Products
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'employee.resources' %}active{% endif %}" href="{{ url_for('employee.resources') }}">
-                                <i class="fas fa-boxes"></i> Resources
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('employee.services') }}">
-                                <i class="fas fa-tools"></i> Services
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'employee.analytics' %}active{% endif %}" href="{{ url_for('employee.analytics') }}">
-                                <i class="fas fa-chart-line"></i> Analytics
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </nav>
-
-            <!-- Main Content -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <!-- Main Content (full width) -->
+            <main class="col-12 px-md-4">
                 {% block content %}{% endblock %}
             </main>
         </div>
@@ -125,43 +84,12 @@
     {% block ai_assistant_scripts %}{% endblock %}
 
     <style>
-    /* Sidebar Styles */
-    .sidebar {
-        position: fixed;
-        top: 56px;
-        bottom: 0;
-        left: 0;
-        z-index: 100;
-        padding: 0;
-        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-        height: calc(100vh - 56px);
-        overflow-y: auto;
-        background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
-        border-right: 1px solid rgba(0, 0, 0, 0.05);
-        width: 250px;
-    }
+    /* Hide any legacy inline sidebars across employee pages */
+    .sidebar { display: none !important; }
 
-    .sidebar-header {
-        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-        padding: 1rem;
-        background: linear-gradient(45deg, #4e73df, #224abe);
-        color: white;
-        margin-bottom: 1rem;
-    }
+    .sidebar-header { display: none !important; }
 
-    .sidebar .nav-link {
-        font-weight: 500;
-        color: #495057;
-        padding: 0.75rem 1.5rem;
-        transition: all 0.3s ease;
-        border-left: 3px solid transparent;
-        display: flex;
-        align-items: center;
-        text-decoration: none;
-        white-space: nowrap;
-        margin: 0.25rem 0.5rem;
-        border-radius: 0.35rem;
-    }
+    .sidebar .nav-link { display: none !important; }
 
     .sidebar .nav-link:hover {
         color: #ffffff;
@@ -182,38 +110,16 @@
     }
 
     /* Main Content Adjustments */
-    main {
-        margin-top: 56px;
-        padding-top: 1.5rem;
-        margin-left: 250px;
-        min-height: calc(100vh - 56px);
-        width: calc(100% - 250px);
-    }
+    main { margin-top: 56px; padding-top: 1.5rem; min-height: calc(100vh - 56px); width: 100%; }
 
     /* Responsive Adjustments */
-    @media (max-width: 768px) {
-        .sidebar {
-            position: static;
-            height: auto;
-            margin-top: 56px;
-            width: 100%;
-            box-shadow: none;
-        }
-        
-        main {
-            margin-top: 0;
-            margin-left: 0;
-            width: 100%;
-        }
+    @media (max-width: 768px) { main { margin-top: 0; } }
 
-        .navbar-toggler {
-            display: block;
-        }
-
-        .sidebar.collapsed {
-            display: none;
-        }
-    }
+    /* Neutralize any inline offsets that assumed a fixed sidebar on specific pages */
+    [style*="left: 16.666667%"] { left: 0 !important; }
+    [style*="margin-left: 16.666667%"] { margin-left: 0 !important; }
+    [style*="width: calc(100% - 16.666667%)"] { width: 100% !important; }
+    [style*="background: linear-gradient(45deg, #4e73df, #224abe)"] { background: transparent !important; color: inherit !important; }
 
     /* Ensure content is visible */
     .container-fluid {
@@ -237,5 +143,25 @@
         border-left: 3px solid #224abe;
     }
     </style>
+
+    <!-- Offcanvas Sidebar for Employee (toggle via hamburger) -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="employeeSidebar" aria-labelledby="employeeSidebarLabel">
+        <div class="offcanvas-header bg-primary text-white">
+            <h5 class="offcanvas-title" id="employeeSidebarLabel"><i class="fas fa-user me-2"></i>Employee Menu</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body p-0">
+            <div class="list-group list-group-flush">
+                <a class="list-group-item list-group-item-action" href="{{ url_for('employee.dashboard') }}"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a>
+                <a class="list-group-item list-group-item-action" href="{{ url_for('employee.new_sale') }}"><i class="fas fa-cash-register me-2"></i>New Sale</a>
+                <a class="list-group-item list-group-item-action" href="{{ url_for('employee.sales_list') }}"><i class="fas fa-history me-2"></i>Sales History</a>
+                <a class="list-group-item list-group-item-action" href="{{ url_for('employee.product_list') }}"><i class="fas fa-box me-2"></i>Products</a>
+                <a class="list-group-item list-group-item-action" href="{{ url_for('employee.resources') }}"><i class="fas fa-boxes me-2"></i>Resources</a>
+                <a class="list-group-item list-group-item-action" href="{{ url_for('employee.services') }}"><i class="fas fa-tools me-2"></i>Services</a>
+                <a class="list-group-item list-group-item-action" href="{{ url_for('employee.analytics') }}"><i class="fas fa-chart-line me-2"></i>Analytics</a>
+                <a class="list-group-item list-group-item-action" href="{{ url_for('auth.logout') }}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a>
+            </div>
+        </div>
+    </div>
 </body>
 </html> 
