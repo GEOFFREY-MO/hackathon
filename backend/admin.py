@@ -2406,11 +2406,11 @@ def download_shop_accounts():
                     try:
                         logger.info(f"Processing date: {current_date.date()}")
 
-                        # Get sales for this day
+                        # Get sales for this day (join Product to use real column for price)
                         sales_by_payment = db.session.query(
                             Sale.payment_method,
-                            db.func.sum(Sale.price * Sale.quantity).label('total')
-                        ).filter(
+                            db.func.sum(Product.marked_price * Sale.quantity).label('total')
+                        ).join(Product, Product.id == Sale.product_id).filter(
                             Sale.shop_id == shop.id,
                             db.func.date(Sale.sale_date) == current_date.date()
                         ).group_by(Sale.payment_method).all()
