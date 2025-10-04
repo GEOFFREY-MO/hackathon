@@ -107,6 +107,14 @@
         .assistant-input input { flex: 1; }
         .assistant-toolbar .btn { --bs-btn-padding-y: .25rem; --bs-btn-padding-x: .5rem; }
 
+        /* Typing indicator */
+        .assistant-msg-typing { font-style: italic; opacity: 0.8; }
+        .typing-dots { display: inline-block; }
+        .typing-dots span { display:inline-block; width:4px; height:4px; margin:0 2px; background: currentColor; border-radius:50%; opacity:0.2; animation: blink 1.2s infinite; }
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
+
         /* Scanner overlay and animations */
         .scanner-overlay {
             position: fixed;
@@ -409,6 +417,30 @@
                 msgBox.appendChild(div); msgBox.scrollTop = msgBox.scrollHeight;
             }
 
+            function showTyping(){
+                const div = document.createElement('div');
+                div.className = 'assistant-msg assistant-msg-ai assistant-msg-typing';
+                div.innerHTML = '<strong>AI Assistant:</strong> <span class="typing-dots"><span></span><span></span><span></span></span>';
+                msgBox.appendChild(div); msgBox.scrollTop = msgBox.scrollHeight; return div;
+            }
+
+            function typeOut(sender, rawText, speed){
+                const div = document.createElement('div');
+                div.className = (sender==='You' ? 'assistant-msg assistant-msg-user' : 'assistant-msg assistant-msg-ai');
+                const strong = document.createElement('strong'); strong.textContent = sender+':'; strong.style.marginRight='4px';
+                const content = document.createElement('span'); content.textContent = '';
+                div.appendChild(strong); div.appendChild(content); msgBox.appendChild(div); msgBox.scrollTop = msgBox.scrollHeight;
+                const text = String(rawText||'');
+                let i=0; const step = Math.max(1, Math.floor(text.length/120)); const interval = Math.max(10, speed||15);
+                const timer = setInterval(()=>{
+                    i += step; if(i>text.length) i=text.length;
+                    content.textContent = text.slice(0,i);
+                    msgBox.scrollTop = msgBox.scrollHeight;
+                    if(i>=text.length){ clearInterval(timer); content.innerHTML = renderMarkdown(text); }
+                }, interval);
+                return div;
+            }
+
             async function loadShops(){
                 try{
                     const res = await fetch('/admin/api/my-shops');
@@ -428,9 +460,11 @@
                 addMsg('You', text); input.value='';
                 if(!currentShopId){ addMsg('AI Assistant','Select a shop first.'); return; }
                 try{
+                    const typing = showTyping();
                     const r = await fetch('/ai_analytics/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,shop_id:currentShopId})});
                     const data = await r.json();
-                    addMsg('AI Assistant', data.response || 'No response');
+                    if(typing && typing.parentNode) typing.parentNode.removeChild(typing);
+                    typeOut('AI Assistant', data.response || 'No response');
                 }catch(e){ addMsg('AI Assistant','Error contacting AI service.'); }
             }
 
@@ -724,7 +758,7 @@
             shopSel.addEventListener('change', e=> currentShopId = e.target.value || null);
             sendBtn.addEventListener('click', sendMessage);
             input.addEventListener('keypress', e=>{ if(e.key==='Enter'){ sendMessage(); }});
-            btnCapture.addEventListener('click', async ()=>{ const data=await capture(); if(data && data.analysis){ addMsg('You','++Screen captured++. Interpreting…');
+            btnCapture.addEventListener('click', async ()=>{ const typing = showTyping(); const data=await capture(); if(data && data.analysis){ addMsg('You','++Screen captured++. Interpreting…');
                 // Confidence badge (hidden DB vs OCR details, just a simple indicator)
                 try {
                     const conf = data.analysis.db_comparison && data.analysis.db_comparison.confidence;
@@ -735,8 +769,9 @@
                         addMsg('AI Assistant', `Confidence: ${icon} ${tag}`);
                     }
                 } catch(_) { /* ignore */ }
-                const formatted = (data.analysis && data.analysis.formatted) ? data.analysis.formatted : null; if(formatted) addMsg('AI Assistant', formatted);
-                if(data.analysis.ai_interpretation) addMsg('AI Assistant', data.analysis.ai_interpretation); else if(!formatted) addMsg('AI Assistant','Capture processed.'); }});
+                if(typing && typing.parentNode) typing.parentNode.removeChild(typing);
+                const formatted = (data.analysis && data.analysis.formatted) ? data.analysis.formatted : null; if(formatted) typeOut('AI Assistant', formatted);
+                if(data.analysis.ai_interpretation) typeOut('AI Assistant', data.analysis.ai_interpretation); else if(!formatted) addMsg('AI Assistant','Capture processed.'); }});
             btnSelect.addEventListener('click', ()=>{ enableSelect(); });
 
             // Theme toggle
