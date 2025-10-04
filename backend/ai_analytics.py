@@ -202,16 +202,33 @@ def upload_chart():
                 if schema['trends']:
                     cd['trends'] = list(set((cd.get('trends') or []) + list(schema['trends'].values())))
                 analysis_result['chart_data'] = cd
-                # Build formatted summary
+                # Build natural summary with bullet points and follow-up
                 lines = []
+                const_type = cd.get('chart_type')
                 if cd.get('title'):
-                    lines.append(f"**Title**: {cd.get('title')}")
-                if cd.get('chart_type'):
-                    lines.append(f"**Type**: {cd.get('chart_type')}")
+                    lines.append(f"**Here are the results** for: {cd.get('title')}")
+                else:
+                    lines.append("**Here are the results** in point form:")
+                if const_type:
+                    lines.append(f"- **Type**: {const_type}")
                 if cd.get('data_points'):
-                    lines.append('**Data Points**:')
                     for p in cd['data_points'][:20]:
                         lines.append(f"- {p.get('label','?')}: {p.get('value','?')}")
+                # Brief explanation
+                if cd.get('data_points') and len(cd['data_points']) >= 2:
+                    try:
+                        first = float(cd['data_points'][0].get('value', 0) or 0)
+                        last = float(cd['data_points'][-1].get('value', 0) or 0)
+                        if last > first:
+                            lines.append("- **Brief**: Values trend upward across the selected range.")
+                        elif last < first:
+                            lines.append("- **Brief**: Values trend downward across the selected range.")
+                        else:
+                            lines.append("- **Brief**: Values are relatively stable across the selected range.")
+                    except Exception:
+                        pass
+                # Follow-up question
+                lines.append("Would you like suggested next steps (e.g., restock alerts, promo ideas), or do you have a different question?")
                 analysis_result['formatted'] = "\n".join(lines)
         except Exception:
             pass
@@ -222,18 +239,31 @@ def upload_chart():
                 cd = analysis_result.get('chart_data', {}) or {}
                 pts = cd.get('data_points', []) or []
                 lines = []
+                const_type2 = cd.get('chart_type')
                 if cd.get('title'):
-                    lines.append(f"**Title**: {cd.get('title')}")
-                if cd.get('chart_type'):
-                    lines.append(f"**Type**: {cd.get('chart_type')}")
+                    lines.append(f"**Here are the results** for: {cd.get('title')}")
+                else:
+                    lines.append("**Here are the results** in point form:")
+                if const_type2:
+                    lines.append(f"- **Type**: {const_type2}")
                 if pts:
-                    lines.append('**Data Points**:')
                     for p in pts[:20]:
                         lines.append(f"- {p.get('label','?')}: {p.get('value','?')}")
+                    try:
+                        first = float(pts[0].get('value', 0) or 0)
+                        last = float(pts[-1].get('value', 0) or 0)
+                        if last > first:
+                            lines.append("- **Brief**: Values trend upward across the selected range.")
+                        elif last < first:
+                            lines.append("- **Brief**: Values trend downward across the selected range.")
+                        else:
+                            lines.append("- **Brief**: Values are relatively stable across the selected range.")
+                    except Exception:
+                        pass
                 if analysis_result.get('insights'):
-                    lines.append('**OCR Insights**:')
                     for s in analysis_result['insights']:
                         lines.append(f"- {s}")
+                lines.append("Would you like suggested next steps (e.g., restock alerts, promo ideas), or do you have a different question?")
                 # Do not show DB vs OCR comparison explicitly in chat; keep internal
                 analysis_result['formatted'] = "\n".join(lines)
         except Exception:
