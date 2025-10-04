@@ -228,45 +228,56 @@ document.addEventListener('DOMContentLoaded', function() {
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
         submitBtn.disabled = true;
         
-        // Submit form data
+        // Submit form data with timeout and abort handling; no redirect
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
         fetch(window.location.href, {
             method: 'POST',
             body: new FormData(form),
             headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            signal: controller.signal
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Show success message
-                const alert = document.createElement('div');
-                alert.className = 'alert alert-success alert-dismissible fade show';
-                alert.innerHTML = `
-                    ${data.message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                `;
-                document.querySelector('main').insertBefore(alert, document.querySelector('.card'));
-                
-                // Redirect after success
-                setTimeout(() => {
-                    window.location.href = '{{ url_for("admin.manage_shops") }}';
-                }, 1500);
-            } else {
-                throw new Error(data.message || 'Failed to update shop');
+        .then(async response => {
+            clearTimeout(timeoutId);
+            if (!response.ok) {
+                try {
+                    const data = await response.json();
+                    throw new Error(data.message || 'Failed to update shop');
+                } catch (_) {
+                    const text = await response.text();
+                    throw new Error(text || 'Failed to update shop');
+                }
             }
+            let data;
+            try { data = await response.json(); } catch (_) { data = {}; }
+            if (!data || !data.success) {
+                throw new Error((data && data.message) || 'Failed to update shop');
+            }
+
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-success alert-dismissible fade show';
+            alert.textContent = data.message || 'Shop updated successfully!';
+            const closeBtn = document.createElement('button');
+            closeBtn.type = 'button';
+            closeBtn.className = 'btn-close';
+            closeBtn.setAttribute('data-bs-dismiss', 'alert');
+            alert.appendChild(closeBtn);
+            document.querySelector('main').insertBefore(alert, document.querySelector('.card'));
         })
         .catch(error => {
-            // Show error message
             const alert = document.createElement('div');
             alert.className = 'alert alert-danger alert-dismissible fade show';
             alert.innerHTML = `
-                ${error.message}
+                ${error && error.message ? error.message : 'An error occurred'}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             `;
             document.querySelector('main').insertBefore(alert, document.querySelector('.card'));
-            
-            // Reset button state
+        })
+        .finally(() => {
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
         });

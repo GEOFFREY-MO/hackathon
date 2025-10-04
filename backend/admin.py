@@ -440,6 +440,8 @@ def edit_shop(shop_id):
             email = request.form.get('email')
 
             if not name or not location:
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({'success': False, 'message': 'Name and location are required.'}), 400
                 flash('Name and location are required.', 'danger')
                 return redirect(url_for('admin.edit_shop', shop_id=shop_id))
 
@@ -450,6 +452,8 @@ def edit_shop(shop_id):
                 Shop.id != shop_id
             ).first()
             if existing_shop:
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({'success': False, 'message': 'A shop with this name already exists.'}), 400
                 flash('A shop with this name already exists.', 'danger')
                 return redirect(url_for('admin.edit_shop', shop_id=shop_id))
 
@@ -459,10 +463,15 @@ def edit_shop(shop_id):
             shop.email = email
             db.session.commit()
 
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': True, 'message': 'Shop updated successfully!'})
+
             flash('Shop updated successfully!', 'success')
             return redirect(url_for('admin.manage_shops'))
         except Exception as e:
             db.session.rollback()
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': False, 'message': 'Error updating shop.'}), 500
             flash('Error updating shop.', 'danger')
 
     return render_template('admin/edit_shop.html', shop=shop)

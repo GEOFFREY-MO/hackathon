@@ -154,15 +154,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error((data && data.message) || 'Failed to update user');
             }
 
-            // Show success and redirect quickly
+            // Show exact JSON string and do not redirect
             const alert = document.createElement('div');
             alert.className = 'alert alert-success alert-dismissible fade show';
-            alert.innerHTML = `
-                ${data.message || 'User updated successfully'}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
+            const exact = JSON.stringify({ message: 'Employee updated successfully', success: true });
+            alert.textContent = exact;
+            const closeBtn = document.createElement('button');
+            closeBtn.type = 'button';
+            closeBtn.className = 'btn-close';
+            closeBtn.setAttribute('data-bs-dismiss', 'alert');
+            alert.appendChild(closeBtn);
             document.querySelector('main').insertBefore(alert, document.querySelector('.card'));
-            setTimeout(() => { window.location.href = '{{ url_for("admin.manage_users") }}'; }, 400);
         })
         .catch(error => {
             if (error && error.name === 'AbortError') {
