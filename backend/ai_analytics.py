@@ -11,6 +11,7 @@ import json
 import logging
 from datetime import datetime
 import random
+import statistics
 from ai_agent import ai_agent
 from ocr_service import ocr_analyzer
 from database import db, Shop, User
@@ -25,6 +26,100 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def _safe_float(v):
+    try:
+        return float(v)
+    except Exception:
+        return 0.0
+
+def _generate_brief_from_chart_data(cd: dict) -> list:
+    """Return concise, varied bullet insights based on chart_data contents."""
+    bullets = []
+    if not isinstance(cd, dict):
+        return bullets
+    pts = cd.get('data_points') or []
+    if not pts:
+        return bullets
+    values = [_safe_float(p.get('value', 0)) for p in pts]
+    labels = [str(p.get('label', '')) for p in pts]
+    total = sum(values) if values else 0.0
+    chart_type = (cd.get('chart_type') or '').lower()
+
+    # Top/bottom helpers
+    ranked = sorted(zip(labels, values), key=lambda x: x[1], reverse=True)
+    top_label, top_value = ranked[0]
+    share = (top_value / total) if total > 0 else 0.0
+
+    # Variants per type
+    if 'line' in chart_type and len(values) >= 2:
+        first, last = values[0], values[-1]
+        change = last - first
+        pct = (change / first * 100.0) if first not in (0, None) else (100.0 if change > 0 else (-100.0 if change < 0 else 0.0))
+        # Volatility estimate
+        diffs = [values[i+1]-values[i] for i in range(len(values)-1)]
+        vol = statistics.pstdev(diffs) if len(diffs) > 1 else 0.0
+        trend_templates_up = [
+            f"Trend looks upward (~{pct:.1f}% vs first point).",
+            f"Upward momentum (~{pct:.1f}% increase from start).",
+            f"Climbing overall (~{pct:.1f}% since the first data point).",
+        ]
+        trend_templates_down = [
+            f"Trend looks downward (~{pct:.1f}% vs first point).",
+            f"Downward momentum (~{pct:.1f}% drop from start).",
+            f"Easing off (~{pct:.1f}% since the first data point).",
+        ]
+        trend_templates_flat = [
+            "Relatively stable over the selected range.",
+            "No strong upward or downward movement.",
+            "Fairly flat trend overall.",
+        ]
+        if change > 0:
+            bullets.append(random.choice(trend_templates_up))
+        elif change < 0:
+            bullets.append(random.choice(trend_templates_down))
+        else:
+            bullets.append(random.choice(trend_templates_flat))
+        if vol > 0:
+            vol_templates = [
+                "With some variability between points.",
+                "Fluctuations present across intervals.",
+                "Includes minor ups/downs between observations.",
+            ]
+            bullets.append(random.choice(vol_templates))
+    elif ('bar' in chart_type or 'column' in chart_type or 'pie' in chart_type or 'doughnut' in chart_type) and total > 0:
+        dom_templates = [
+            f"Top item is {top_label} (~{share*100:.1f}% of total).",
+            f"{top_label} leads with ~{share*100:.1f}% share.",
+            f"{top_label} is dominant (~{share*100:.1f}% contribution).",
+        ]
+        bullets.append(random.choice(dom_templates))
+        if len(ranked) >= 3:
+            top3 = sum(v for _, v in ranked[:3])
+            top3_share = (top3/total)*100.0
+            top3_templates = [
+                f"Top 3 items account for ~{top3_share:.1f}% of the total.",
+                f"Concentration in top 3 (~{top3_share:.1f}% combined).",
+                f"Top 3 categories together make ~{top3_share:.1f}%.",
+            ]
+            bullets.append(random.choice(top3_templates))
+    else:
+        # Generic table/card or unknown type
+        top_templates = [
+            f"Highest value: {top_label} ({top_value:g}).",
+            f"Leader: {top_label} ({top_value:g}).",
+            f"Top entry is {top_label} at {top_value:g}.",
+        ]
+        bullets.append(random.choice(top_templates))
+        if total > 0 and len(values) >= 2:
+            mean_v = total/len(values)
+            mean_templates = [
+                f"Average across items ~{mean_v:.1f}.",
+                f"Mean value is around {mean_v:.1f}.",
+                f"Typical value ~{mean_v:.1f}.",
+            ]
+            bullets.append(random.choice(mean_templates))
+    return bullets
 
 @ai_analytics_bp.route('/api/ai/chat', methods=['POST'])
 @login_required
@@ -215,19 +310,10 @@ def upload_chart():
                 if cd.get('data_points'):
                     for p in cd['data_points'][:20]:
                         lines.append(f"- {p.get('label','?')}: {p.get('value','?')}")
-                # Brief explanation
-                if cd.get('data_points') and len(cd['data_points']) >= 2:
-                    try:
-                        first = float(cd['data_points'][0].get('value', 0) or 0)
-                        last = float(cd['data_points'][-1].get('value', 0) or 0)
-                        if last > first:
-                            lines.append("- **Brief**: Values trend upward across the selected range.")
-                        elif last < first:
-                            lines.append("- **Brief**: Values trend downward across the selected range.")
-                        else:
-                            lines.append("- **Brief**: Values are relatively stable across the selected range.")
-                    except Exception:
-                        pass
+                # Brief, data-aware insights (varied)
+                brief_points = _generate_brief_from_chart_data(cd)
+                for b in brief_points[:3]:
+                    lines.append(f"- **Insight**: {b}")
                 # Follow-up question (randomized)
                 prompts = [
                     "Would you like suggested next steps (e.g., restock alerts, promo ideas), or do you have a different question?",
@@ -257,17 +343,9 @@ def upload_chart():
                 if pts:
                     for p in pts[:20]:
                         lines.append(f"- {p.get('label','?')}: {p.get('value','?')}")
-                    try:
-                        first = float(pts[0].get('value', 0) or 0)
-                        last = float(pts[-1].get('value', 0) or 0)
-                        if last > first:
-                            lines.append("- **Brief**: Values trend upward across the selected range.")
-                        elif last < first:
-                            lines.append("- **Brief**: Values trend downward across the selected range.")
-                        else:
-                            lines.append("- **Brief**: Values are relatively stable across the selected range.")
-                    except Exception:
-                        pass
+                    brief_points2 = _generate_brief_from_chart_data(cd)
+                    for b in brief_points2[:3]:
+                        lines.append(f"- **Insight**: {b}")
                 if analysis_result.get('insights'):
                     for s in analysis_result['insights']:
                         lines.append(f"- {s}")
