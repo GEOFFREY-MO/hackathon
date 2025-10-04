@@ -362,5 +362,11 @@ document.getElementById('downloadReportBtn').addEventListener('click', async fun
 .form-select {
     min-width: 200px;
 }
+
+/* Ensure Net Total card text is clearly visible on dark background */
+.card.bg-dark .card-body h6,
+.card.bg-dark .card-body h4 {
+    color: #ffffff !important;
+}
 </style>
 {% endblock %} 
