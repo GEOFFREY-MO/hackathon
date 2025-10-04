@@ -215,6 +215,11 @@
                 document.getElementById('shop_id').required = false;
             }
         }
+
+        // If the page was reloaded after a validation error, re-apply visibility
+        document.addEventListener('DOMContentLoaded', ()=>{
+            toggleShopSelect();
+        });
     </script>
 </body>
 </html>

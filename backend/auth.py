@@ -178,8 +178,8 @@ def register():
             flash('Error during registration.', 'danger')
             return redirect(url_for('auth.register'))
 
-    # For GET request, get shops for employee registration
-    shops = Shop.query.all() if request.args.get('role') == 'employee' else []
+    # For GET request, preload shops so the dropdown populates immediately when 'Employee' is selected
+    shops = Shop.query.all()
     return render_template('register.html', shops=shops)
 
 # -------------------------------
