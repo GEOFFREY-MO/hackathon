@@ -524,14 +524,29 @@
                         if(!table && target.querySelector){ table = target.querySelector('table'); }
                         if(table){
                             const rows = Array.from(table.querySelectorAll('tr'));
+                            const headerRow = rows.find(r=> r.querySelectorAll('th').length) || null;
+                            const headerCells = headerRow ? Array.from(headerRow.children).map(th=> (th.textContent||'').toLowerCase()) : [];
                             const bodyRows = rows.filter(r=> r.querySelectorAll('td').length);
+                            const detectIndex = (names)=>{
+                                for(let i=0;i<headerCells.length;i++){
+                                    if(names.some(n=> headerCells[i].includes(n))) return i;
+                                }
+                                return -1;
+                            };
+                            const labelIdx = headerCells.length ? (detectIndex(['product','item','name','label','category','service'])) : 0;
+                            let valueIdx = headerCells.length ? (detectIndex(['value','sales','amount','revenue','count','qty','quantity','stock','units','price'])) : 1;
+                            if(valueIdx < 0) valueIdx = 1;
                             const cells = bodyRows.map(r=> Array.from(r.children).map(td=> (td.textContent||'').trim()));
                             hybrid.chart_type = 'table';
-                            hybrid.labels = cells.map(c=> String(c[0]||'').trim()).filter(Boolean);
-                            hybrid.values = cells.map(c=>{ const v=(c[1]||'').toString(); const n=parseFloat(v.replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; });
+                            hybrid.labels = cells.map(c=> String(c[labelIdx>=0?labelIdx:0]||'').trim()).filter(Boolean);
+                            hybrid.values = cells.map(c=>{ const v=(c[valueIdx>=0?valueIdx:1]||'').toString(); const n=parseFloat(v.replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; });
                             hybrid.confidence = 'high';
                             const caption = table.getAttribute('aria-label') || (table.querySelector('caption') && table.querySelector('caption').textContent) || '';
-                            hybrid.title = (caption||'').toString().trim();
+                            if(caption){ hybrid.title = (caption||'').toString().trim(); }
+                            if(!hybrid.title){
+                                let cursor = table; let hops=0;
+                                while(cursor && hops<4){ cursor = cursor.previousElementSibling; hops++; if(cursor && /^(H1|H2|H3|H4|H5|H6)$/i.test(cursor.tagName)){ hybrid.title = cursor.textContent.trim(); break; } }
+                            }
                         } else {
                             // KPI cards
                             const cardScope = (el && el.closest && el.closest('.card')) || (el && el.querySelector && el.querySelector('.card')) || (target.querySelector && target.querySelector('.card'));
@@ -586,10 +601,10 @@
                                     chartMeta = { labels, datasets, chart_type: ctype, source: 'chartjs' };
                                     if (labels.length && datasets.length) {
                                         if (!hybrid.chart_type) {
-                                            const first = datasets[0].data.map(x=> parseFloat(x)||0);
+                                            const sums = labels.map((_, i)=> datasets.reduce((acc, ds)=> acc + (parseFloat(ds.data[i])||0), 0));
                                             hybrid.chart_type = (ctype.indexOf('bar')>-1 ? 'bar' : (ctype.indexOf('line')>-1 ? 'line' : (ctype.indexOf('pie')>-1 || ctype.indexOf('doughnut')>-1 ? 'pie' : 'unknown')));
                                             hybrid.labels = labels;
-                                            hybrid.values = first;
+                                            hybrid.values = sums;
                                             hybrid.confidence = 'high';
                                         }
                                         preferHybrid = true;
@@ -606,14 +621,29 @@
                             const svg = el.tagName === 'SVG' ? el : el.querySelector('svg');
                             if (svg) {
                                 updateScannerText(scan,'Analyzing…');
-                                const rect = svg.getBoundingClientRect();
-                                const xml = new XMLSerializer().serializeToString(svg);
-                                const img = new Image();
-                                img.crossOrigin = 'anonymous';
-                                img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
-                                await new Promise((resolve)=>{ img.onload = resolve; img.onerror = resolve; });
-                                // If we have hybrid/chart data, skip rasterizing to image to avoid OCR
+                                // Try simple text extraction first (common with D3 charts)
                                 if (!hybrid.chart_type) {
+                                    try {
+                                        const texts = Array.from(svg.querySelectorAll('text')).map(t=> (t.textContent||'').trim()).filter(Boolean);
+                                        const labelCandidates = texts.filter(t=> isNaN(parseFloat(t.replace(/[^0-9.\-]/g,''))));
+                                        const valueCandidates = texts.map(t=> parseFloat(t.replace(/[^0-9.\-]/g,''))).filter(v=> !isNaN(v));
+                                        if (labelCandidates.length && valueCandidates.length) {
+                                            const len = Math.min(labelCandidates.length, valueCandidates.length, 20);
+                                            hybrid.chart_type = 'bar';
+                                            hybrid.labels = labelCandidates.slice(0,len);
+                                            hybrid.values = valueCandidates.slice(0,len);
+                                            hybrid.confidence = 'medium';
+                                            preferHybrid = true;
+                                        }
+                                    } catch(_) {}
+                                }
+                                if (!preferHybrid) {
+                                    const rect = svg.getBoundingClientRect();
+                                    const xml = new XMLSerializer().serializeToString(svg);
+                                    const img = new Image();
+                                    img.crossOrigin = 'anonymous';
+                                    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+                                    await new Promise((resolve)=>{ img.onload = resolve; img.onerror = resolve; });
                                     const cvs = document.createElement('canvas');
                                     cvs.width = Math.max(1, Math.floor(rect.width*2));
                                     cvs.height = Math.max(1, Math.floor(rect.height*2));
@@ -621,8 +651,6 @@
                                     ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,cvs.width,cvs.height);
                                     ctx.drawImage(img, 0, 0, cvs.width, cvs.height);
                                     blob = await new Promise(r=> cvs.toBlob(b=> r(b), 'image/png', 0.92));
-                                } else {
-                                    preferHybrid = true;
                                 }
                             }
                         }
@@ -643,6 +671,13 @@
                         });
                         blob = await new Promise(r=> canvas.toBlob(b=> r(b), 'image/png', 0.92));
                     }
+                    // Infer title from nearby heading if empty; capture selected time period
+                    if (!hybrid.title && el){
+                        let cursor = el; let hops=0;
+                        while(cursor && hops<4){ cursor = cursor.previousElementSibling; hops++; if(cursor && /^(H1|H2|H3|H4|H5|H6)$/i.test(cursor.tagName)){ hybrid.title = cursor.textContent.trim(); break; } }
+                    }
+                    try { const scope = (el && el.closest && el.closest('.card')) || document; const active = scope.querySelector && scope.querySelector('button[data-period].active'); if(active){ hybrid.time_period = active.getAttribute('data-period') || ''; } } catch(_) {}
+
                     updateScannerText(scan, (hybrid.chart_type || chartMeta) ? 'Analyzing insights…' : 'Processing (OCR)…');
                     const f=new FormData(); if(blob){ f.append('file',blob,'capture.png'); } if(currentShopId) f.append('shop_id', currentShopId); if(chartMeta){ f.append('chart_meta', JSON.stringify(chartMeta)); } if(hybrid.chart_type){ f.append('hybrid_json', JSON.stringify(hybrid)); }
                     const resp=await fetch('/ai_analytics/api/ai/upload-chart',{method:'POST',body:f});
