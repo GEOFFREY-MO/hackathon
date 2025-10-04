@@ -778,6 +778,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handle export button
     document.getElementById('exportBtn').addEventListener('click', function() {
         const activePeriod = document.querySelector('[data-period].active').dataset.period;
+        if (!window.analyticsData || !window.analyticsData.sales_trend || !window.analyticsData.sales_trend.labels || window.analyticsData.sales_trend.labels.length === 0) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-warning alert-dismissible fade show';
+            alertDiv.style.position = 'fixed';
+            alertDiv.style.top = '20px';
+            alertDiv.style.right = '20px';
+            alertDiv.style.zIndex = '1060';
+            alertDiv.innerHTML = `
+                <i class="fas fa-info-circle me-2"></i>No analytics data to export yet. Click Refresh Data first.
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(alertDiv);
+            setTimeout(()=>{ try{ alertDiv.remove(); }catch(_){} }, 3500);
+            return;
+        }
         exportData(activePeriod);
     });
 
