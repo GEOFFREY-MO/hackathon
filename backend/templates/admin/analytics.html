@@ -1245,11 +1245,20 @@ function showError(message) {
     }, 5000);
 }
 
+let analyticsAbortController;
+
 function updateCharts(period) {
     showLoading();
-    
+
+    // Abort any in-flight request to prevent race conditions on rapid clicks
+    if (analyticsAbortController) {
+        try { analyticsAbortController.abort(); } catch (e) {}
+    }
+    analyticsAbortController = new AbortController();
+    const { signal } = analyticsAbortController;
+
     // Fetch data from the server
-    fetch(`/admin/analytics/data?period=${period}`)
+    fetch(`/admin/analytics/data?period=${period}`, { signal })
         .then(response => {
             if (!response.ok) {
                 throw new Error('Failed to fetch analytics data');
@@ -1302,8 +1311,12 @@ function updateCharts(period) {
             hideLoading();
         })
         .catch(error => {
+            // Ignore abort errors from rapid clicks
+            if (error && error.name === 'AbortError') return;
             console.error('Error fetching analytics data:', error);
             showError('Failed to load analytics data. Please try again.');
+        })
+        .finally(() => {
             hideLoading();
         });
 }

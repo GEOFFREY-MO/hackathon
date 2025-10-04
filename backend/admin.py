@@ -388,11 +388,15 @@ def add_shop():
             email = request.form.get('email')
 
             if not name or not location:
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({'success': False, 'message': 'Name and location are required.'}), 400
                 flash('Name and location are required.', 'danger')
                 return redirect(url_for('admin.manage_shops'))
 
             # Check if shop name already exists for this admin
             if Shop.query.filter_by(name=name, admin_id=current_user.id).first():
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({'success': False, 'message': 'A shop with this name already exists.'}), 400
                 flash('A shop with this name already exists.', 'danger')
                 return redirect(url_for('admin.manage_shops'))
 
@@ -406,10 +410,15 @@ def add_shop():
             db.session.add(shop)
             db.session.commit()
 
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': True, 'message': 'Shop added successfully!'})
+
             flash('Shop added successfully!', 'success')
             return redirect(url_for('admin.manage_shops'))
         except Exception as e:
             db.session.rollback()
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': False, 'message': 'Error adding shop.'}), 500
             flash('Error adding shop.', 'danger')
 
     return render_template('admin/add_shop.html')
@@ -515,17 +524,23 @@ def add_user():
 
             # Validate required fields
             if not all([name, email, password, shop_id]):
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({'success': False, 'message': 'All fields are required.'}), 400
                 flash('All fields are required.', 'danger')
                 return redirect(url_for('admin.add_user'))
 
             # Check if email already exists
             if User.query.filter_by(email=email).first():
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({'success': False, 'message': 'Email already registered.'}), 400
                 flash('Email already registered.', 'danger')
                 return redirect(url_for('admin.add_user'))
 
             # Verify shop belongs to this admin
             shop = Shop.query.filter_by(id=shop_id, admin_id=current_user.id).first()
             if not shop:
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({'success': False, 'message': 'Invalid shop selection.'}), 400
                 flash('Invalid shop selection.', 'danger')
                 return redirect(url_for('admin.add_user'))
 
@@ -541,10 +556,15 @@ def add_user():
             db.session.add(user)
             db.session.commit()
 
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': True, 'message': 'Employee added successfully!'})
+
             flash('Employee added successfully!', 'success')
             return redirect(url_for('admin.manage_users'))
         except Exception as e:
             db.session.rollback()
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': False, 'message': 'Error adding employee.'}), 500
             flash('Error adding employee.', 'danger')
 
     # Get only shops owned by this admin
