@@ -85,14 +85,14 @@
             </div>
             <div class="row mt-3">
                 <div class="col-12">
-                    <div class="card bg-dark text-white net-total-card">
+                    <div class="card net-total-card">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <h6 class="card-title mb-0 net-total-title">Net Total</h6>
                                     <h4 class="mt-2 mb-0 net-total-amount">KES {{ "%.2f"|format(overall_totals.total) }}</h4>
                                 </div>
-                                <i class="fas fa-chart-line fa-2x"></i>
+                                <i class="fas fa-chart-line fa-2x net-total-icon"></i>
                             </div>
                         </div>
                     </div>
@@ -371,23 +371,21 @@ document.getElementById('downloadReportBtn').addEventListener('click', async fun
 
 /* Stronger foreground for Net Total card */
 .net-total-card {
-    background-color: #0b0f1a !important;
-    border: 1px solid rgba(255,255,255,0.08);
+    background-color: #ffffff !important;
+    border: 1px solid rgba(0,0,0,0.08);
 }
 .net-total-card .card-body { position: relative; z-index: 1; }
 .net-total-title {
-    color: #ffffff !important;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    color: #111827 !important; /* near-black */
     font-weight: 800;
     letter-spacing: 0.3px;
 }
 .net-total-amount {
-    color: #ffffff !important;
-    text-shadow: 0 2px 3px rgba(0,0,0,0.85);
+    color: #0b1324 !important;
     font-weight: 800;
     font-size: 1.85rem;
     line-height: 1.1;
 }
-.net-total-card i { color: #ffffffcc; opacity: .35; }
+.net-total-icon { color: #0b1324aa; }
 </style>
 {% endblock %} 
