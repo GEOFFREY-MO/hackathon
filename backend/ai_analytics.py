@@ -105,6 +105,13 @@ def upload_chart():
         
         # Analyze chart
         shop_id = request.form.get('shop_id', current_user.shop_id)
+        # Hybrid extraction JSON from frontend (DOM / chart API)
+        hybrid_json = None
+        try:
+            if 'hybrid_json' in request.form:
+                hybrid_json = json.loads(request.form.get('hybrid_json'))
+        except Exception:
+            hybrid_json = None
         # If frontend provided chart metadata (Chart.js), pass via temp hint
         chart_meta = None
         try:
@@ -168,6 +175,46 @@ def upload_chart():
                 analysis_result['formatted'] = "\n".join(lines)
             except Exception:
                 pass
+
+        # If hybrid_json provided, normalize to unified schema and merge
+        try:
+            if hybrid_json and isinstance(analysis_result, dict):
+                schema = {
+                    'chart_type': hybrid_json.get('chart_type'),
+                    'title': hybrid_json.get('title') or '',
+                    'labels': hybrid_json.get('labels') or [],
+                    'values': [float(v) if v is not None else 0.0 for v in (hybrid_json.get('values') or [])],
+                    'time_period': hybrid_json.get('time_period') or '',
+                    'trends': hybrid_json.get('trends') or {},
+                    'confidence': hybrid_json.get('confidence') or 'medium'
+                }
+                cd = analysis_result.get('chart_data') or {}
+                # Prefer hybrid over OCR when high-confidence
+                if schema['chart_type']:
+                    cd['chart_type'] = schema['chart_type']
+                if schema['title'] and not cd.get('title'):
+                    cd['title'] = schema['title']
+                if schema['labels'] and schema['values'] and not cd.get('data_points'):
+                    cd['data_points'] = [
+                        {'label': str(schema['labels'][i] if i < len(schema['labels']) else f'Item {i+1}'), 'value': float(schema['values'][i] if i < len(schema['values']) else 0.0), 'type': 'numerical'}
+                        for i in range(max(len(schema['labels']), len(schema['values'])))
+                    ]
+                if schema['trends']:
+                    cd['trends'] = list(set((cd.get('trends') or []) + list(schema['trends'].values())))
+                analysis_result['chart_data'] = cd
+                # Build formatted summary
+                lines = []
+                if cd.get('title'):
+                    lines.append(f"**Title**: {cd.get('title')}")
+                if cd.get('chart_type'):
+                    lines.append(f"**Type**: {cd.get('chart_type')}")
+                if cd.get('data_points'):
+                    lines.append('**Data Points**:')
+                    for p in cd['data_points'][:20]:
+                        lines.append(f"- {p.get('label','?')}: {p.get('value','?')}")
+                analysis_result['formatted'] = "\n".join(lines)
+        except Exception:
+            pass
 
         # If OCR succeeded, stream a formatted message payload
         try:

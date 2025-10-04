@@ -500,8 +500,46 @@
             async function capture(el){
                 const scan = createScanner(el);
                 try{
-                    updateScannerText(scan,'Scanning…');
-                    // Prefer direct capture for charts (canvas/svg) when selecting a specific element
+                    // 1) DOM/Table/Card extraction first
+                    updateScannerText(scan,'Analyzing DOM…');
+                    const hybrid = { chart_type: null, title: '', labels: [], values: [], time_period: '', trends: {}, confidence: null };
+                    try{
+                        const target = el || (document.querySelector('main.container') || document.body);
+                        // Tables
+                        let table = null;
+                        if(el && el.closest){ table = el.closest('table') || (el.querySelector && el.querySelector('table')); }
+                        if(!table && target.querySelector){ table = target.querySelector('table'); }
+                        if(table){
+                            const rows = Array.from(table.querySelectorAll('tr'));
+                            const bodyRows = rows.filter(r=> r.querySelectorAll('td').length);
+                            const cells = bodyRows.map(r=> Array.from(r.children).map(td=> (td.textContent||'').trim()));
+                            hybrid.chart_type = 'table';
+                            hybrid.labels = cells.map(c=> String(c[0]||'').trim()).filter(Boolean);
+                            hybrid.values = cells.map(c=>{ const v=(c[1]||'').toString(); const n=parseFloat(v.replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; });
+                            hybrid.confidence = 'high';
+                            const caption = table.getAttribute('aria-label') || (table.querySelector('caption') && table.querySelector('caption').textContent) || '';
+                            hybrid.title = (caption||'').toString().trim();
+                        } else {
+                            // KPI cards
+                            const cardScope = (el && el.closest && el.closest('.card')) || (el && el.querySelector && el.querySelector('.card')) || (target.querySelector && target.querySelector('.card'));
+                            if(cardScope){
+                                const titleEl = cardScope.querySelector('h6, h5, .card-title');
+                                const valEl = cardScope.querySelector('h1, h2, h3, .display-4, .card-text');
+                                const title = titleEl ? titleEl.textContent.trim() : '';
+                                if(valEl){
+                                    const valNum = parseFloat(valEl.textContent.replace(/[^0-9.\-]/g,'')) || 0;
+                                    hybrid.chart_type = 'card';
+                                    hybrid.title = title;
+                                    hybrid.labels = [title || 'KPI'];
+                                    hybrid.values = [valNum];
+                                    hybrid.confidence = 'medium';
+                                }
+                            }
+                        }
+                    }catch(_){ /* ignore */ }
+
+                    // 2) Chart API extraction (Chart.js / Highcharts / ECharts)
+                    updateScannerText(scan,'Checking chart API…');
                     let blob = null;
                     let chartMeta = null;
                     if (el) {
@@ -557,7 +595,7 @@
                             }
                         }
                     }
-                    // Fallback to html2canvas with higher scale
+                    // 3) Fallback to html2canvas with higher scale (OCR)
                     if (!blob) {
                         const root = el || (document.querySelector('main.container') || document.body);
                         const canvas = await html2canvas(root,{
@@ -573,8 +611,8 @@
                         });
                         blob = await new Promise(r=> canvas.toBlob(b=> r(b), 'image/png', 0.92));
                     }
-                    updateScannerText(scan,'Processing…');
-                    const f=new FormData(); f.append('file',blob,'capture.png'); if(currentShopId) f.append('shop_id', currentShopId); if(chartMeta){ f.append('chart_meta', JSON.stringify(chartMeta)); }
+                    updateScannerText(scan, hybrid.chart_type ? 'Analyzing insights…' : 'Processing (OCR)…');
+                    const f=new FormData(); f.append('file',blob,'capture.png'); if(currentShopId) f.append('shop_id', currentShopId); if(chartMeta){ f.append('chart_meta', JSON.stringify(chartMeta)); } if(hybrid.chart_type){ f.append('hybrid_json', JSON.stringify(hybrid)); }
                     const resp=await fetch('/ai_analytics/api/ai/upload-chart',{method:'POST',body:f});
                     const data = await resp.json();
                     return data;
@@ -600,7 +638,7 @@
             shopSel.addEventListener('change', e=> currentShopId = e.target.value || null);
             sendBtn.addEventListener('click', sendMessage);
             input.addEventListener('keypress', e=>{ if(e.key==='Enter'){ sendMessage(); }});
-            btnCapture.addEventListener('click', async ()=>{ const data=await capture(); if(data && data.analysis){ addMsg('You','++Screen captured++. Interpreting…');
+            btnCapture.addEventListener('click', async ()=>{ addMsg('AI Assistant','Analyzing DOM → Checking chart API → OCR fallback'); const data=await capture(); if(data && data.analysis){ addMsg('You','++Screen captured++. Interpreting…');
                 // Confidence badge (hidden DB vs OCR details, just a simple indicator)
                 try {
                     const conf = data.analysis.db_comparison && data.analysis.db_comparison.confidence;
@@ -613,7 +651,7 @@
                 } catch(_) { /* ignore */ }
                 const formatted = (data.analysis && data.analysis.formatted) ? data.analysis.formatted : null; if(formatted) addMsg('AI Assistant', formatted);
                 if(data.analysis.ai_interpretation) addMsg('AI Assistant', data.analysis.ai_interpretation); else if(!formatted) addMsg('AI Assistant','Capture processed.'); }});
-            btnSelect.addEventListener('click', enableSelect);
+            btnSelect.addEventListener('click', ()=>{ addMsg('AI Assistant','Analyzing DOM → Checking chart API → OCR fallback'); enableSelect(); });
 
             // Theme toggle
             const themeBtn = document.getElementById('themeToggle');
