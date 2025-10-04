@@ -542,6 +542,7 @@
                     updateScannerText(scan,'Checking chart API…');
                     let blob = null;
                     let chartMeta = null;
+                    let preferHybrid = false;
                     if (el) {
                         const targetCanvas = el.tagName === 'CANVAS' ? el : el.querySelector && el.querySelector('canvas');
                         if (targetCanvas && targetCanvas.toDataURL) {
@@ -570,11 +571,24 @@
                                     const datasets = Array.isArray(chartObj.data.datasets) ? chartObj.data.datasets.map(d=>({ label: d.label, data: Array.from(d.data||[]) })) : [];
                                     const ctype = chartObj.config.type || 'unknown';
                                     chartMeta = { labels, datasets, chart_type: ctype, source: 'chartjs' };
+                                    if (labels.length && datasets.length) {
+                                        if (!hybrid.chart_type) {
+                                            const first = datasets[0].data.map(x=> parseFloat(x)||0);
+                                            hybrid.chart_type = (ctype.indexOf('bar')>-1 ? 'bar' : (ctype.indexOf('line')>-1 ? 'line' : (ctype.indexOf('pie')>-1 || ctype.indexOf('doughnut')>-1 ? 'pie' : 'unknown')));
+                                            hybrid.labels = labels;
+                                            hybrid.values = first;
+                                            hybrid.confidence = 'high';
+                                        }
+                                        preferHybrid = true;
+                                    }
                                 }
                             } catch (_) { /* ignore */ }
-                            const dataURL = targetCanvas.toDataURL('image/png');
-                            const res = await fetch(dataURL);
-                            blob = await res.blob();
+                            // If we have hybrid/chart data, skip rasterizing to image to avoid OCR
+                            if (!preferHybrid) {
+                                const dataURL = targetCanvas.toDataURL('image/png');
+                                const res = await fetch(dataURL);
+                                blob = await res.blob();
+                            }
                         } else if ((el.tagName === 'SVG' || (el.querySelector && el.querySelector('svg')))) {
                             const svg = el.tagName === 'SVG' ? el : el.querySelector('svg');
                             if (svg) {
@@ -585,18 +599,23 @@
                                 img.crossOrigin = 'anonymous';
                                 img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
                                 await new Promise((resolve)=>{ img.onload = resolve; img.onerror = resolve; });
-                                const cvs = document.createElement('canvas');
-                                cvs.width = Math.max(1, Math.floor(rect.width*2));
-                                cvs.height = Math.max(1, Math.floor(rect.height*2));
-                                const ctx = cvs.getContext('2d');
-                                ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,cvs.width,cvs.height);
-                                ctx.drawImage(img, 0, 0, cvs.width, cvs.height);
-                                blob = await new Promise(r=> cvs.toBlob(b=> r(b), 'image/png', 0.92));
+                                // If we have hybrid/chart data, skip rasterizing to image to avoid OCR
+                                if (!hybrid.chart_type) {
+                                    const cvs = document.createElement('canvas');
+                                    cvs.width = Math.max(1, Math.floor(rect.width*2));
+                                    cvs.height = Math.max(1, Math.floor(rect.height*2));
+                                    const ctx = cvs.getContext('2d');
+                                    ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,cvs.width,cvs.height);
+                                    ctx.drawImage(img, 0, 0, cvs.width, cvs.height);
+                                    blob = await new Promise(r=> cvs.toBlob(b=> r(b), 'image/png', 0.92));
+                                } else {
+                                    preferHybrid = true;
+                                }
                             }
                         }
                     }
-                    // 3) Fallback to html2canvas with higher scale (OCR)
-                    if (!blob) {
+                    // 3) Fallback to html2canvas with higher scale (OCR) only when hybrid/chart not available
+                    if (!blob && !preferHybrid && !hybrid.chart_type) {
                         const root = el || (document.querySelector('main.container') || document.body);
                         const canvas = await html2canvas(root,{
                             useCORS:true,
@@ -611,8 +630,8 @@
                         });
                         blob = await new Promise(r=> canvas.toBlob(b=> r(b), 'image/png', 0.92));
                     }
-                    updateScannerText(scan, hybrid.chart_type ? 'Analyzing insights…' : 'Processing (OCR)…');
-                    const f=new FormData(); f.append('file',blob,'capture.png'); if(currentShopId) f.append('shop_id', currentShopId); if(chartMeta){ f.append('chart_meta', JSON.stringify(chartMeta)); } if(hybrid.chart_type){ f.append('hybrid_json', JSON.stringify(hybrid)); }
+                    updateScannerText(scan, (hybrid.chart_type || chartMeta) ? 'Analyzing insights…' : 'Processing (OCR)…');
+                    const f=new FormData(); if(blob){ f.append('file',blob,'capture.png'); } if(currentShopId) f.append('shop_id', currentShopId); if(chartMeta){ f.append('chart_meta', JSON.stringify(chartMeta)); } if(hybrid.chart_type){ f.append('hybrid_json', JSON.stringify(hybrid)); }
                     const resp=await fetch('/ai_analytics/api/ai/upload-chart',{method:'POST',body:f});
                     const data = await resp.json();
                     return data;
@@ -638,7 +657,7 @@
             shopSel.addEventListener('change', e=> currentShopId = e.target.value || null);
             sendBtn.addEventListener('click', sendMessage);
             input.addEventListener('keypress', e=>{ if(e.key==='Enter'){ sendMessage(); }});
-            btnCapture.addEventListener('click', async ()=>{ addMsg('AI Assistant','Analyzing DOM → Checking chart API → OCR fallback'); const data=await capture(); if(data && data.analysis){ addMsg('You','++Screen captured++. Interpreting…');
+            btnCapture.addEventListener('click', async ()=>{ const data=await capture(); if(data && data.analysis){ addMsg('You','++Screen captured++. Interpreting…');
                 // Confidence badge (hidden DB vs OCR details, just a simple indicator)
                 try {
                     const conf = data.analysis.db_comparison && data.analysis.db_comparison.confidence;
@@ -651,7 +670,7 @@
                 } catch(_) { /* ignore */ }
                 const formatted = (data.analysis && data.analysis.formatted) ? data.analysis.formatted : null; if(formatted) addMsg('AI Assistant', formatted);
                 if(data.analysis.ai_interpretation) addMsg('AI Assistant', data.analysis.ai_interpretation); else if(!formatted) addMsg('AI Assistant','Capture processed.'); }});
-            btnSelect.addEventListener('click', ()=>{ addMsg('AI Assistant','Analyzing DOM → Checking chart API → OCR fallback'); enableSelect(); });
+            btnSelect.addEventListener('click', ()=>{ enableSelect(); });
 
             // Theme toggle
             const themeBtn = document.getElementById('themeToggle');

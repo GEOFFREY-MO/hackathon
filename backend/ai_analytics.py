@@ -83,25 +83,24 @@ def get_shop_performance():
 def upload_chart():
     """Upload and analyze chart/graph image"""
     try:
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file uploaded'}), 400
-        
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
-        
-        if not allowed_file(file.filename):
+        # Accept hybrid-only payloads (no file) for DOM/Chart extraction
+        has_file = 'file' in request.files and request.files['file'].filename != ''
+        file = request.files['file'] if has_file else None
+        if has_file and not allowed_file(file.filename):
             return jsonify({'error': 'Invalid file type'}), 400
         
         # Create upload directory if it doesn't exist
         os.makedirs(UPLOAD_FOLDER, exist_ok=True)
         
-        # Save file
-        filename = secure_filename(file.filename)
-        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-        filename = f"{timestamp}_{filename}"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(filepath)
+        # Save file when provided
+        filename = None
+        filepath = None
+        if has_file:
+            filename = secure_filename(file.filename)
+            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            filename = f"{timestamp}_{filename}"
+            filepath = os.path.join(UPLOAD_FOLDER, filename)
+            file.save(filepath)
         
         # Analyze chart
         shop_id = request.form.get('shop_id', current_user.shop_id)
@@ -119,7 +118,8 @@ def upload_chart():
                 chart_meta = json.loads(request.form.get('chart_meta'))
         except Exception:
             chart_meta = None
-        analysis_result = ai_agent.analyze_uploaded_chart(filepath, int(shop_id))
+        # If we have a file, run OCR pipeline; otherwise start with empty analysis and rely on hybrid/chart meta
+        analysis_result = ai_agent.analyze_uploaded_chart(filepath, int(shop_id)) if filepath else {'chart_data': {}, 'insights': []}
         if chart_meta and isinstance(analysis_result, dict):
             # Attach meta so assistant can leverage labels/series even if OCR is weak
             analysis_result['chart_meta'] = chart_meta
@@ -240,10 +240,11 @@ def upload_chart():
             pass
         
         # Clean up file
-        try:
-            os.remove(filepath)
-        except:
-            pass
+        if filepath:
+            try:
+                os.remove(filepath)
+            except:
+                pass
         
         return jsonify({
             'analysis': analysis_result,
