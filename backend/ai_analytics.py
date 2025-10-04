@@ -10,15 +10,21 @@ import os
 import json
 import logging
 from datetime import datetime
+from pathlib import Path
 import random
 import statistics
 from ai_agent import ai_agent
+from memory_store import FileMemoryStore, OptionalMem0
 from ocr_service import ocr_analyzer
 from database import db, Shop, User
 
 logger = logging.getLogger(__name__)
 
 ai_analytics_bp = Blueprint('ai_analytics', __name__)
+
+# Memory stores (file-backed; optional mem0)
+_file_mem = FileMemoryStore(Path('instance') / 'memory.jsonl')
+_mem0 = OptionalMem0()
 
 # Configure upload folder
 UPLOAD_FOLDER = 'uploads/charts'
@@ -136,8 +142,24 @@ def chat_with_ai():
         if not shop_id:
             return jsonify({'error': 'Shop ID is required'}), 400
         
-        # Get AI response
-        response = ai_agent.chat_with_agent(message, shop_id)
+        # Read recent memory for context (last 8 entries)
+        recent = _file_mem.get_recent(int(shop_id), int(current_user.id), limit=8)
+        recent_text = "\n".join([f"{r.get('role','')}: {r.get('content','')}" for r in recent])
+
+        # Store user message to memory stores
+        _file_mem.add(int(shop_id), int(current_user.id), 'user', message, meta={"endpoint":"chat"})
+        _mem0.add(message, user_id=int(current_user.id), metadata={"shop_id": int(shop_id), "endpoint": "chat"})
+
+        # Get AI response with recent context appended
+        augmented = message
+        if recent_text:
+            augmented = f"Context (recent):\n{recent_text}\n---\n{message}"
+        response = ai_agent.chat_with_agent(augmented, shop_id)
+
+        # Store assistant reply
+        if isinstance(response, str) and response:
+            _file_mem.add(int(shop_id), int(current_user.id), 'assistant', response, meta={"endpoint":"chat"})
+            _mem0.add(response, user_id=int(current_user.id), metadata={"shop_id": int(shop_id), "endpoint": "chat"})
         
         return jsonify({
             'response': response,
