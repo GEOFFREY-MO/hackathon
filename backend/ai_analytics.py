@@ -125,6 +125,7 @@ def upload_chart():
                     lines.append('**OCR Insights**:')
                     for s in analysis_result['insights']:
                         lines.append(f"- {s}")
+                # Do not show DB vs OCR comparison explicitly in chat; keep internal
                 analysis_result['formatted'] = "\n".join(lines)
         except Exception:
             pass

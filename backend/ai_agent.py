@@ -13,6 +13,8 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 import os
 from database import db, Shop, Sale, Product, Service, ServiceSale, Expense, FinancialRecord
+from database.models import Inventory, User, ResourceUpdate
+from sqlalchemy import func
 from ocr_service import ocr_analyzer
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -154,8 +156,8 @@ class RetailAIAgent:
             if not shop:
                 return {"error": "Shop not found"}
             
-            # Calculate time range
-            end_date = datetime.utcnow()
+            # Calculate time range (use local naive to match stored timestamps)
+            end_date = datetime.now()
             if time_period == "7d":
                 start_date = end_date - timedelta(days=7)
             elif time_period == "30d":
@@ -327,10 +329,11 @@ class RetailAIAgent:
     def chat_with_agent(self, message: str, shop_id: int, context: Dict = None) -> str:
         """Chat with AI agent for retail insights"""
         try:
-            # Ensure OpenAI client is available (lazy init)
-            if not self.client and not self._ensure_client():
-                return "AI features are not available. Please set OPENAI_API_KEY and retry."
-            
+            # Try to directly answer common DB questions BEFORE any AI calls
+            direct = self._answer_structured_query(message, shop_id)
+            if direct:
+                return direct
+
             # Get current shop performance data
             performance_data = self.analyze_shop_performance(shop_id)
             insights = self.generate_insights(performance_data)
@@ -366,27 +369,51 @@ class RetailAIAgent:
                 "timestamp": datetime.utcnow().isoformat()
             })
             
-            # Call the selected AI backend
-            if self.client is not None:
-                # OpenAI
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": message}
-                    ],
-                    max_tokens=500,
-                    temperature=0.7
-                )
-                ai_response = response.choices[0].message.content
-            else:
-                # Gemini
-                model = genai.GenerativeModel(self.model)
-                resp = model.generate_content([
-                    {"text": system_prompt},
-                    {"text": message}
-                ])
-                ai_response = resp.text or ""
+            # If AI backend available, attempt a generative answer; else fall back to local insights
+            ai_available = self.client is not None or self._ensure_client()
+            ai_response = None
+            if ai_available:
+                try:
+                    if self.client is not None:
+                        # OpenAI
+                        response = self.client.chat.completions.create(
+                            model=self.model,
+                            messages=[
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": message}
+                            ],
+                            max_tokens=500,
+                            temperature=0.7
+                        )
+                        ai_response = response.choices[0].message.content
+                    else:
+                        # Gemini
+                        model = genai.GenerativeModel(self.model)
+                        resp = model.generate_content([
+                            {"text": system_prompt},
+                            {"text": message}
+                        ])
+                        ai_response = (resp.text or "").strip()
+                except Exception as gen_err:
+                    logger.error(f"Generative backend error: {gen_err}")
+
+            if not ai_response:
+                # Local fallback response summarizing current DB insights
+                lines = [
+                    "Local insights (no cloud AI):",
+                    f"- Total Revenue: ${performance_data.get('total_revenue', 0):,.2f}",
+                    f"- Net Profit: ${performance_data.get('net_profit', 0):,.2f}",
+                    f"- Profit Margin: {performance_data.get('profit_margin', 0):.1f}%",
+                    f"- Sales Trend: {performance_data.get('sales_trend', 'unknown')}",
+                ]
+                if performance_data.get('top_products'):
+                    tp = performance_data['top_products'][0]
+                    lines.append(f"- Top Product: {tp[0]} (${tp[1]['revenue']:,.2f})")
+                if insights:
+                    lines.append("- Insights:")
+                    for s in insights[:5]:
+                        lines.append(f"  • {s}")
+                ai_response = "\n".join(lines)
             
             # Add to conversation history
             self.conversation_history.append({
@@ -452,6 +479,9 @@ class RetailAIAgent:
             chart_data = ocr_analyzer.extract_chart_data(image_path)
             performance_analysis = ocr_analyzer.analyze_performance_metrics(chart_data)
             insights = ocr_analyzer.generate_insights(chart_data, performance_analysis)
+
+            # Compare OCR findings with live DB facts for this shop
+            db_comparison = self._compare_ocr_with_db(chart_data, shop_id)
             
             # Get AI interpretation
             chart_summary = f"""
@@ -462,6 +492,7 @@ class RetailAIAgent:
             - Trends: {', '.join(chart_data.get('trends', []))}
             - Performance Metrics: {performance_analysis}
             - Insights: {insights}
+            - DB Comparison: {db_comparison}
             """
             
             ai_interpretation = self.chat_with_agent(
@@ -473,6 +504,7 @@ class RetailAIAgent:
                 'chart_data': chart_data,
                 'performance_analysis': performance_analysis,
                 'insights': insights,
+                'db_comparison': db_comparison,
                 'ai_interpretation': ai_interpretation,
                 'chart_type': chart_data.get('chart_type', 'unknown'),
                 'title': chart_data.get('title', ''),
@@ -551,6 +583,365 @@ class RetailAIAgent:
     def clear_conversation_history(self):
         """Clear conversation history"""
         self.conversation_history = []
+
+    # =====================
+    # Structured DB answers
+    # =====================
+    def _answer_structured_query(self, message: str, shop_id: int) -> Optional[str]:
+        """Heuristically detect common analytics questions and answer from DB immediately.
+
+        Supports:
+        - employee count
+        - product count
+        - low stock count
+        - stock/resource updates in last 24h and by whom
+        - revenue/expenses for today, week, month
+        - products sold count and services sold count
+        - service revenue and top services
+        """
+        try:
+            msg = (message or "").lower()
+            answers: List[str] = []
+
+            # Helper to pick period
+            def period_range() -> Tuple[datetime, datetime, str]:
+                now = datetime.utcnow()
+                label = 'last 30 days'
+                if 'today' in msg:
+                    start = datetime(now.year, now.month, now.day)
+                    end = now
+                    label = 'today'
+                elif 'week' in msg or 'this week' in msg:
+                    # start of ISO week (Monday)
+                    dow = (now.weekday())
+                    start = datetime(now.year, now.month, now.day) - timedelta(days=dow)
+                    end = now
+                    label = 'this week'
+                elif 'month' in msg or 'this month' in msg:
+                    start = datetime(now.year, now.month, 1)
+                    end = now
+                    label = 'this month'
+                else:
+                    start = now - timedelta(days=30)
+                    end = now
+                return start, end, label
+
+            start, end, period_label = period_range()
+
+            # Employees count
+            if any(k in msg for k in ["how many employees", "employee count", "number of employees"]):
+                employees_count = User.query.filter_by(role='employee', shop_id=shop_id).count()
+                answers.append(f"Employees: {employees_count}")
+
+            # Product count
+            if any(k in msg for k in ["how many products", "product count", "number of products", "total products"]):
+                products_count = Product.query.filter_by(shop_id=shop_id).count()
+                answers.append(f"Products: {products_count}")
+
+            # Low stock items (Inventory quantity < Product.reorder_level)
+            if any(k in msg for k in ["low stock", "reorder", "below reorder", "stock low"]):
+                low_count = (
+                    db.session.query(Inventory)
+                    .join(Product, Product.id == Inventory.product_id)
+                    .filter(Inventory.shop_id == shop_id)
+                    .filter(Inventory.quantity < Product.reorder_level)
+                    .count()
+                )
+                answers.append(f"Low stock items: {low_count}")
+
+            # Resource stock updates (last 24h) and active updaters
+            if any(k in msg for k in ["updating stock", "updating stocks", "stock updates", "who updated stock", "who updated stocks"]):
+                since = datetime.utcnow() - timedelta(hours=24)
+                recent_updates = (
+                    ResourceUpdate.query
+                    .filter(ResourceUpdate.shop_id == shop_id)
+                    .filter(ResourceUpdate.timestamp >= since)
+                    .all()
+                )
+                updates_count = len(recent_updates)
+                updater_ids = {}
+                for ru in recent_updates:
+                    updater_ids[ru.updated_by] = updater_ids.get(ru.updated_by, 0) + 1
+                if updates_count == 0:
+                    answers.append("Stock/resource updates in last 24h: 0")
+                else:
+                    # Map to names
+                    names = []
+                    for uid, c in sorted(updater_ids.items(), key=lambda x: x[1], reverse=True):
+                        u = User.query.get(uid)
+                        if u:
+                            names.append(f"{u.name} ({c})")
+                    answers.append(f"Stock/resource updates in last 24h: {updates_count}. By: {', '.join(names)}")
+
+            # Revenue (products + services) and expenses for period
+            if any(k in msg for k in ["revenue", "sales", "turnover", "profit", "expense", "expenses", "summary"]):
+                # Product revenue
+                prod_rev = (
+                    db.session.query(func.coalesce(func.sum(Sale.quantity * Product.marked_price), 0.0))
+                    .join(Product, Product.id == Sale.product_id)
+                    .filter(Sale.shop_id == shop_id)
+                    .filter(Sale.sale_date >= start)
+                    .filter(Sale.sale_date <= end)
+                ).scalar() or 0.0
+                # Services revenue
+                svc_rev = (
+                    db.session.query(func.coalesce(func.sum(ServiceSale.price), 0.0))
+                    .filter(ServiceSale.shop_id == shop_id)
+                    .filter(ServiceSale.sale_date >= start)
+                    .filter(ServiceSale.sale_date <= end)
+                ).scalar() or 0.0
+                # Expenses
+                expenses_sum = (
+                    db.session.query(func.coalesce(func.sum(Expense.amount), 0.0))
+                    .filter(Expense.shop_id == shop_id)
+                    .filter(Expense.date >= start)
+                    .filter(Expense.date <= end)
+                ).scalar() or 0.0
+                total_rev = float(prod_rev) + float(svc_rev)
+                profit = total_rev - float(expenses_sum)
+                answers.append(f"Financial ({period_label}): Revenue=KES {total_rev:,.2f} (Products {float(prod_rev):,.2f} + Services {float(svc_rev):,.2f}), Expenses=KES {float(expenses_sum):,.2f}, Profit=KES {profit:,.2f}")
+
+            # Products sold count
+            if any(k in msg for k in ["products sold", "items sold", "units sold"]):
+                units = (
+                    db.session.query(func.coalesce(func.sum(Sale.quantity), 0))
+                    .filter(Sale.shop_id == shop_id)
+                    .filter(Sale.sale_date >= start)
+                    .filter(Sale.sale_date <= end)
+                ).scalar() or 0
+                answers.append(f"Products sold ({period_label}): {int(units)} units")
+
+            # Services sold count
+            if any(k in msg for k in ["services sold", "service count", "service transactions"]):
+                svc_count = (
+                    db.session.query(func.count(ServiceSale.id))
+                    .filter(ServiceSale.shop_id == shop_id)
+                    .filter(ServiceSale.sale_date >= start)
+                    .filter(ServiceSale.sale_date <= end)
+                ).scalar() or 0
+                answers.append(f"Services sold ({period_label}): {int(svc_count)}")
+
+            # Top services by revenue
+            if any(k in msg for k in ["top service", "best service", "popular service"]):
+                rows = (
+                    db.session.query(Service.name, func.coalesce(func.sum(ServiceSale.price), 0.0).label('rev'))
+                    .join(Service, Service.id == ServiceSale.service_id)
+                    .filter(ServiceSale.shop_id == shop_id)
+                    .filter(ServiceSale.sale_date >= start)
+                    .filter(ServiceSale.sale_date <= end)
+                    .group_by(Service.name)
+                    .order_by(func.coalesce(func.sum(ServiceSale.price), 0.0).desc())
+                    .limit(5)
+                ).all()
+                if rows:
+                    top = ", ".join([f"{n} (KES {float(r):,.2f})" for n, r in rows])
+                    answers.append(f"Top services ({period_label}): {top}")
+
+            # Average sale (revenue / transactions)
+            if any(k in msg for k in ["average sale", "avg sale", "avg transaction"]):
+                prod_rev = (
+                    db.session.query(func.coalesce(func.sum(Sale.quantity * Product.marked_price), 0.0))
+                    .join(Product, Product.id == Sale.product_id)
+                    .filter(Sale.shop_id == shop_id, Sale.sale_date >= start, Sale.sale_date <= end)
+                ).scalar() or 0.0
+                svc_rev = (
+                    db.session.query(func.coalesce(func.sum(ServiceSale.price), 0.0))
+                    .filter(ServiceSale.shop_id == shop_id, ServiceSale.sale_date >= start, ServiceSale.sale_date <= end)
+                ).scalar() or 0.0
+                tx = (
+                    db.session.query(func.count(Sale.id))
+                    .filter(Sale.shop_id == shop_id, Sale.sale_date >= start, Sale.sale_date <= end)
+                ).scalar() or 0
+                tx += (
+                    db.session.query(func.count(ServiceSale.id))
+                    .filter(ServiceSale.shop_id == shop_id, ServiceSale.sale_date >= start, ServiceSale.sale_date <= end)
+                ).scalar() or 0
+                avg = (float(prod_rev) + float(svc_rev)) / tx if tx else 0.0
+                answers.append(f"Average sale ({period_label}): KES {avg:,.2f} from {tx} transactions")
+
+            # Recent products
+            if any(k in msg for k in ["recent products", "latest products"]):
+                recent = (
+                    Product.query.filter_by(shop_id=shop_id)
+                    .order_by(Product.created_at.desc())
+                    .limit(5).all()
+                )
+                items = []
+                for p in recent:
+                    qty = (
+                        db.session.query(func.coalesce(func.sum(Inventory.quantity), 0))
+                        .filter(Inventory.product_id == p.id, Inventory.shop_id == shop_id)
+                    ).scalar() or 0
+                    items.append(f"{p.name} ({p.category}) @ KES {float(p.marked_price):,.2f}, stock {int(qty)}")
+                if items:
+                    answers.append("Recent products: " + "; ".join(items))
+
+            # Low stock products list
+            if any(k in msg for k in ["low stock products", "which are low stock", "list low stock"]):
+                lows = (
+                    db.session.query(Product)
+                    .join(Inventory, Inventory.product_id == Product.id)
+                    .filter(Product.shop_id == shop_id)
+                    .filter(Inventory.quantity < Product.reorder_level)
+                    .group_by(Product.id)
+                    .limit(10).all()
+                )
+                if lows:
+                    items = []
+                    for p in lows:
+                        qty = (
+                            db.session.query(func.coalesce(func.sum(Inventory.quantity), 0))
+                            .filter(Inventory.product_id == p.id, Inventory.shop_id == shop_id)
+                        ).scalar() or 0
+                        items.append(f"{p.name} (stock {int(qty)})")
+                    answers.append("Low stock: " + ", ".join(items))
+
+            # Top product category by revenue (period)
+            if any(k in msg for k in ["top category", "best category"]):
+                rows = (
+                    db.session.query(Product.category, func.coalesce(func.sum(Sale.quantity * Product.marked_price), 0.0).label('rev'))
+                    .join(Sale, Sale.product_id == Product.id)
+                    .filter(Sale.shop_id == shop_id, Sale.sale_date >= start, Sale.sale_date <= end)
+                    .group_by(Product.category)
+                    .order_by(func.coalesce(func.sum(Sale.quantity * Product.marked_price), 0.0).desc())
+                    .limit(3).all()
+                )
+                if rows:
+                    top = ", ".join([f"{c} (KES {float(r):,.2f})" for c, r in rows])
+                    answers.append(f"Top categories ({period_label}): {top}")
+
+            # Peak hours (last 7 days)
+            if any(k in msg for k in ["peak hours", "busy hours", "hourly distribution"]):
+                since = datetime.utcnow() - timedelta(days=7)
+                rows = (
+                    db.session.query(func.strftime('%H', Sale.sale_date).label('hr'), func.count(Sale.id))
+                    .filter(Sale.shop_id == shop_id, Sale.sale_date >= since)
+                    .group_by('hr')
+                    .order_by(func.count(Sale.id).desc())
+                    .limit(3).all()
+                )
+                if rows:
+                    peaks = ", ".join([f"{hr}:00 ({cnt} tx)" for hr, cnt in rows])
+                    answers.append(f"Peak hours (last 7d): {peaks}")
+
+            if answers:
+                return "\n".join(answers)
+            return None
+        except Exception as e:
+            logger.error(f"Structured query handler error: {str(e)}")
+            return None
+
+    def _compare_ocr_with_db(self, chart_data: Dict[str, Any], shop_id: int) -> Dict[str, Any]:
+        """Cross-check OCR-extracted chart data with database aggregates.
+
+        Heuristic rules:
+        - For bar/pie charts, treat labels as product names; compute revenue per product for last 30 days and compare.
+        - For line charts with date-like labels, compute daily revenue series for detected dates and compare.
+        Returns a dict with matches and simple consistency metrics.
+        """
+        try:
+            result: Dict[str, Any] = {'matches': [], 'notes': []}
+            data_points = chart_data.get('data_points') or []
+            if not data_points:
+                result['notes'].append('No OCR data points to compare.')
+                return result
+
+            chart_type = (chart_data.get('chart_type') or '').lower()
+            now = datetime.utcnow()
+            start_date = now - timedelta(days=30)
+
+            def revenue_for_product(prod: Product) -> float:
+                # Sum sale totals for last 30 days for this product in this shop
+                q = (
+                    db.session.query(func.coalesce(func.sum(Sale.quantity * prod.marked_price), 0.0))
+                    .filter(Sale.shop_id == shop_id)
+                    .filter(Sale.product_id == prod.id)
+                    .filter(Sale.sale_date >= start_date)
+                    .filter(Sale.sale_date <= now)
+                )
+                val = q.scalar() or 0.0
+                return float(val)
+
+            def find_product_by_label(label: str) -> Optional[Product]:
+                if not label:
+                    return None
+                # Try exact barcode match first
+                prod = Product.query.filter_by(shop_id=shop_id, barcode=label).first()
+                if prod:
+                    return prod
+                # Fuzzy name match
+                return Product.query.filter(Product.shop_id == shop_id, Product.name.ilike(f"%{label}%")).first()
+
+            # Product/category style charts
+            if chart_type in ('bar_chart', 'pie_chart', 'unknown'):
+                for dp in data_points:
+                    label = str(dp.get('label') or '').strip()
+                    ocr_value = dp.get('value')
+                    prod = find_product_by_label(label)
+                    if not prod:
+                        result['matches'].append({'label': label, 'status': 'no_db_match'})
+                        continue
+                    db_val = revenue_for_product(prod)
+                    diff = None
+                    if isinstance(ocr_value, (int, float)):
+                        try:
+                            diff = float(db_val) - float(ocr_value)
+                        except Exception:
+                            diff = None
+                    result['matches'].append({
+                        'label': label,
+                        'db_revenue_30d': round(db_val, 2),
+                        'ocr_value': ocr_value,
+                        'delta': round(diff, 2) if diff is not None else None
+                    })
+                return result
+
+            # Time series charts (line)
+            if chart_type == 'line_chart':
+                # Attempt to parse labels as dates and compare daily revenue
+                for dp in data_points:
+                    label = str(dp.get('label') or '').strip()
+                    try:
+                        # Try common date formats
+                        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y"):
+                            try:
+                                dt = datetime.strptime(label, fmt)
+                                break
+                            except Exception:
+                                dt = None
+                        if not dt:
+                            result['matches'].append({'label': label, 'status': 'not_a_date'})
+                            continue
+                        day_start = datetime(dt.year, dt.month, dt.day)
+                        day_end = day_start + timedelta(days=1)
+                        db_day_rev = (
+                            db.session.query(func.coalesce(func.sum(Sale.quantity * Product.marked_price), 0.0))
+                            .join(Product, Product.id == Sale.product_id)
+                            .filter(Sale.shop_id == shop_id)
+                            .filter(Sale.sale_date >= day_start)
+                            .filter(Sale.sale_date < day_end)
+                        ).scalar() or 0.0
+                        ocr_value = dp.get('value')
+                        delta = None
+                        if isinstance(ocr_value, (int, float)):
+                            try:
+                                delta = float(db_day_rev) - float(ocr_value)
+                            except Exception:
+                                delta = None
+                        result['matches'].append({
+                            'label': label,
+                            'db_revenue_day': round(float(db_day_rev), 2),
+                            'ocr_value': ocr_value,
+                            'delta': round(delta, 2) if delta is not None else None
+                        })
+                    except Exception:
+                        result['matches'].append({'label': label, 'status': 'parse_error'})
+                return result
+
+            return result
+        except Exception as e:
+            logger.error(f"DB comparison error: {str(e)}")
+            return {'matches': [], 'notes': ['Comparison failed']}
 
 # Global instance
 ai_agent = RetailAIAgent()

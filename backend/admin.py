@@ -57,19 +57,28 @@ def dashboard():
         
         # Initialize data structures
         shop_data = {}
-        total_sales = 0
+        total_product_revenue = 0.0
+        total_service_revenue = 0.0
+        total_revenue = 0.0
         total_products = 0
         total_inventory = 0
         total_employees = 0
         total_sale_count = 0
+        total_service_count = 0
+        total_expenses = 0.0
         
         # Process each shop
         for shop in shops:
             try:
-                # Get sales data
+                # Get product sales data
                 sales = Sale.query.filter_by(shop_id=shop.id).all()
-                shop_sales = sum(sale.total for sale in sales)
+                shop_product_revenue = sum(sale.total for sale in sales)
                 total_sale_count += len(sales)
+
+                # Get service sales data
+                service_sales = ServiceSale.query.filter_by(shop_id=shop.id).all()
+                shop_service_revenue = sum(ss.price for ss in service_sales)
+                total_service_count += len(service_sales)
                 
                 # Get inventory data
                 inventory_items = Inventory.query.filter_by(shop_id=shop.id).all()
@@ -82,43 +91,147 @@ def dashboard():
                     role='employee'
                 ).count()
                 
+                # Expenses for this shop (all time)
+                shop_expenses = db.session.query(func.coalesce(func.sum(Expense.amount), 0.0)).filter(Expense.shop_id == shop.id).scalar() or 0.0
+
                 # Store shop data
                 shop_data[shop.id] = {
                     'name': shop.name,
-                    'sales': shop_sales,
+                    'product_revenue': float(shop_product_revenue),
+                    'service_revenue': float(shop_service_revenue),
+                    'revenue': float(shop_product_revenue + shop_service_revenue),
                     'inventory': shop_inventory,
-                    'employees': employee_count
+                    'employees': employee_count,
+                    'expenses': float(shop_expenses)
                 }
                 
                 # Update totals
-                total_sales += shop_sales
+                total_product_revenue += float(shop_product_revenue)
+                total_service_revenue += float(shop_service_revenue)
+                total_revenue += float(shop_product_revenue + shop_service_revenue)
                 total_inventory += shop_inventory
                 total_employees += employee_count
+                total_expenses += float(shop_expenses)
             except Exception as e:
                 current_app.logger.error(f"Error processing shop {shop.id}: {str(e)}", exc_info=True)
                 continue
         
         # Get total products across all shops
-        total_products = Product.query.filter(Product.shop_id.in_([shop.id for shop in shops])).count()
+        shop_ids = [shop.id for shop in shops] or [-1]
+        total_products = Product.query.filter(Product.shop_id.in_(shop_ids)).count()
+
+        # Total shops/users (for header cards)
+        total_shops = len(shops)
+        active_shops = total_shops
+        total_users = User.query.filter(User.admin_id == current_user.id).count()
+        active_users = total_users
+
+        # Low stock count across shops
+        low_stock_count = (
+            db.session.query(Inventory)
+            .join(Product, Product.id == Inventory.product_id)
+            .filter(Inventory.shop_id.in_(shop_ids))
+            .filter(Inventory.quantity < Product.reorder_level)
+            .count()
+        )
+
+        # Recent products with total stock
+        recent_products = (
+            Product.query.filter(Product.shop_id.in_(shop_ids))
+            .order_by(Product.created_at.desc())
+            .limit(5)
+            .all()
+        )
+        for p in recent_products:
+            qty = (
+                db.session.query(func.coalesce(func.sum(Inventory.quantity), 0))
+                .filter(Inventory.product_id == p.id)
+                .filter(Inventory.shop_id.in_(shop_ids))
+            ).scalar() or 0
+            setattr(p, 'total_stock', int(qty))
+
+        # Low stock products list
+        low_stock_products = (
+            db.session.query(Product)
+            .join(Inventory, Inventory.product_id == Product.id)
+            .filter(Product.shop_id.in_(shop_ids))
+            .filter(Inventory.quantity < Product.reorder_level)
+            .group_by(Product.id)
+            .limit(10)
+            .all()
+        )
+        for p in low_stock_products:
+            qty = (
+                db.session.query(func.coalesce(func.sum(Inventory.quantity), 0))
+                .filter(Inventory.product_id == p.id)
+                .filter(Inventory.shop_id.in_(shop_ids))
+            ).scalar() or 0
+            setattr(p, 'total_stock', int(qty))
         
-        # Get recent sales for all shops
+        # Get recent product sales for all shops
         recent_sales = Sale.query.filter(
-            Sale.shop_id.in_([shop.id for shop in shops])
+            Sale.shop_id.in_(shop_ids)
         ).order_by(Sale.sale_date.desc()).limit(5).all()
+
+        # Get recent service sales for all shops
+        recent_service_sales = ServiceSale.query.filter(
+            ServiceSale.shop_id.in_(shop_ids)
+        ).order_by(ServiceSale.sale_date.desc()).limit(5).all()
+
+        # Active services and service categories summary
+        active_services = Service.query.filter(Service.shop_id.in_(shop_ids), Service.is_active == True).all()
+        service_categories = (
+            db.session.query(ServiceCategory, func.count(Service.id))
+            .join(Service, Service.category_id == ServiceCategory.id)
+            .filter(Service.shop_id.in_(shop_ids))
+            .group_by(ServiceCategory.id)
+            .all()
+        )
+
+        # Augment shops with totals for the overview card
+        for s in shops:
+            s.total_products = Product.query.filter_by(shop_id=s.id).count()
+            s.total_quantity = (
+                db.session.query(func.coalesce(func.sum(Inventory.quantity), 0))
+                .filter(Inventory.shop_id == s.id)
+            ).scalar() or 0
+            s.low_stock = (
+                db.session.query(Inventory)
+                .join(Product, Product.id == Inventory.product_id)
+                .filter(Inventory.shop_id == s.id)
+                .filter(Inventory.quantity < Product.reorder_level)
+            ).all()
         
         # Derived metrics expected by template
-        average_sale = float(total_sales) / total_sale_count if total_sale_count > 0 else 0.0
+        total_transactions = total_sale_count + total_service_count
+        average_sale = float(total_revenue) / total_transactions if total_transactions > 0 else 0.0
 
         return render_template('admin/dashboard.html',
                              shops=shops,
                              shop_data=shop_data,
-                             total_sales=total_sales,
+                             total_product_revenue=total_product_revenue,
+                             total_service_revenue=total_service_revenue,
+                             total_revenue=total_revenue,
+                             total_sales=total_revenue,
                              total_products=total_products,
                              total_inventory=total_inventory,
                              total_employees=total_employees,
                              total_sale_count=total_sale_count,
+                             total_service_count=total_service_count,
+                             total_transactions=total_transactions,
                              average_sale=average_sale,
-                             recent_sales=recent_sales)
+                             total_expenses=total_expenses,
+                             recent_sales=recent_sales,
+                             recent_service_sales=recent_service_sales,
+                             total_shops=total_shops,
+                             active_shops=active_shops,
+                             total_users=total_users,
+                             active_users=active_users,
+                             low_stock_count=low_stock_count,
+                             recent_products=recent_products,
+                             low_stock_products=low_stock_products,
+                             active_services=active_services,
+                             service_categories=service_categories)
     except Exception as e:
         current_app.logger.error(f"Error in dashboard: {str(e)}", exc_info=True)
         flash('An error occurred while loading the dashboard.', 'error')
