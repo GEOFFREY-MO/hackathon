@@ -247,11 +247,25 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                showAlert(data.message, 'success');
-                // Redirect after success
+                // Prominent success banner so the user notices
+                const banner = document.createElement('div');
+                banner.className = 'alert alert-success alert-dismissible fade show';
+                banner.style.position = 'fixed';
+                banner.style.top = '20%';
+                banner.style.left = '50%';
+                banner.style.transform = 'translateX(-50%)';
+                banner.style.zIndex = '1060';
+                banner.style.padding = '1rem 1.25rem';
+                banner.style.boxShadow = '0 0.5rem 1rem rgba(0,0,0,0.15)';
+                banner.innerHTML = `
+                    <i class="fas fa-check-circle me-2"></i>${data.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.body.appendChild(banner);
+                // Redirect shortly after showing the banner
                 setTimeout(() => {
                     window.location.href = '{{ url_for("admin.manage_shops") }}';
-                }, 1500);
+                }, 1800);
             } else {
                 throw new Error(data.message || 'Failed to add shop');
             }
