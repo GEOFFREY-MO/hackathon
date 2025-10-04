@@ -85,14 +85,14 @@
             </div>
             <div class="row mt-3">
                 <div class="col-12">
-                    <div class="card bg-dark text-white">
+                    <div class="card bg-dark text-white net-total-card">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <h6 class="card-title mb-0 text-white">Net Total</h6>
                                     <h4 class="mt-2 mb-0 text-white">KES {{ "%.2f"|format(overall_totals.total) }}</h4>
                                 </div>
-                                <i class="fas fa-chart-line fa-2x opacity-50"></i>
+                                <i class="fas fa-chart-line fa-2x"></i>
                             </div>
                         </div>
                     </div>
@@ -368,5 +368,18 @@ document.getElementById('downloadReportBtn').addEventListener('click', async fun
 .card.bg-dark .card-body h4 {
     color: #ffffff !important;
 }
+
+/* Stronger foreground for Net Total card */
+.net-total-card {
+    background-color: #0b0f1a !important;
+    border: 1px solid rgba(255,255,255,0.08);
+}
+.net-total-card .card-body { position: relative; z-index: 1; }
+.net-total-card h6, .net-total-card h4 {
+    color: #ffffff !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.65);
+    font-weight: 700;
+}
+.net-total-card i { color: #ffffffcc; opacity: .35; }
 </style>
 {% endblock %} 
