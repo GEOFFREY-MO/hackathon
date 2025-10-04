@@ -1642,6 +1642,11 @@ def get_accounts_data():
 @employee_bp.route('/expenses/add', methods=['POST'])
 @login_required
 def add_expense():
+    # Expense management is restricted to admins only
+    return jsonify({
+        'success': False,
+        'message': 'Expenses are managed by admins. Please contact an administrator.'
+    }), 403
     try:
         data = request.get_json()
         current_app.logger.info(f"Adding new expense: {data}")
@@ -1726,6 +1731,11 @@ def add_expense():
 @employee_bp.route('/expenses/<int:id>/delete', methods=['DELETE'])
 @login_required
 def delete_expense(id):
+    # Expense management is restricted to admins only
+    return jsonify({
+        'success': False,
+        'message': 'Expenses are managed by admins. Please contact an administrator.'
+    }), 403
     try:
         expense = Expense.query.get_or_404(id)
 

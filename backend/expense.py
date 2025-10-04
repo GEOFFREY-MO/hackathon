@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from database import db, Expense, Shop, User
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_login import current_user
 from datetime import datetime
 import logging
 
@@ -33,7 +34,10 @@ def create_expense():
     try:
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id)
-        if not user or not user.shop_id:
+        # Admin-only creation
+        if not user or user.role != 'admin':
+            return jsonify({'error': 'Admin privileges required'}), 403
+        if not user.shop_id:
             return jsonify({'error': 'Shop not found'}), 404
         data = request.get_json()
         if not data or 'amount' not in data or 'category' not in data or 'description' not in data:
@@ -67,7 +71,9 @@ def update_expense(expense_id):
     try:
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id)
-        if not user or not user.shop_id:
+        if not user or user.role != 'admin':
+            return jsonify({'error': 'Admin privileges required'}), 403
+        if not user.shop_id:
             return jsonify({'error': 'Shop not found'}), 404
         expense = Expense.query.filter_by(
             id=expense_id,
@@ -105,7 +111,9 @@ def delete_expense(expense_id):
     try:
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id)
-        if not user or not user.shop_id:
+        if not user or user.role != 'admin':
+            return jsonify({'error': 'Admin privileges required'}), 403
+        if not user.shop_id:
             return jsonify({'error': 'Shop not found'}), 404
         expense = Expense.query.filter_by(
             id=expense_id,

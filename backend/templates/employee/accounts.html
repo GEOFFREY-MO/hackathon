@@ -110,9 +110,7 @@
                     </div>
                 </div>
                 <div class="btn-toolbar mb-2 mb-md-0">
-                    <button type="button" class="btn btn-light" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
-                        <i class="fas fa-plus me-2"></i>Add Expense
-                    </button>
+                    <span class="badge bg-secondary">Expenses managed by Admin</span>
                 </div>
             </div>
 
@@ -238,13 +236,11 @@
                         </div>
                     </div>
 
-                <!-- Expenses Table -->
+                <!-- Expenses Table (Read-only) -->
                 <div class="card shadow mb-4">
                     <div class="card-header py-3 d-flex justify-content-between align-items-center" style="background: rgba(255, 255, 255, 0.9);">
                         <h6 class="m-0 font-weight-bold" style="color: #4e73df; font-size: 1.1rem;">Recent Expenses</h6>
-                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
-                            <i class="fas fa-plus"></i> Add Expense
-                        </button>
+                        <span class="text-muted small">View-only. Contact admin to add or edit expenses.</span>
                                 </div>
                                 <div class="card-body">
                                     <div class="table-responsive">
@@ -265,11 +261,7 @@
                                         <td>{{ expense.category }}</td>
                                                     <td>{{ expense.description }}</td>
                                                     <td>KES {{ "%.2f"|format(expense.amount) }}</td>
-                                                    <td>
-                                            <button class="btn btn-danger btn-sm delete-expense" data-id="{{ expense.id }}">
-                                                            <i class="fas fa-trash"></i>
-                                                        </button>
-                                                    </td>
+                                                    <td><span class="text-muted">—</span></td>
                                                 </tr>
                                                 {% endfor %}
                                             </tbody>
@@ -282,44 +274,7 @@
     </div>
 </div>
 
-<!-- Add Expense Modal -->
-<div class="modal fade" id="addExpenseModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Add New Expense</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="addExpenseForm">
-                    <div class="mb-3">
-                        <label for="category" class="form-label">Category</label>
-                        <select class="form-select" id="category" name="category" required>
-                            <option value="">Select Category</option>
-                            <option value="Utilities">Utilities</option>
-                            <option value="Rent">Rent</option>
-                            <option value="Supplies">Supplies</option>
-                            <option value="Maintenance">Maintenance</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="description" class="form-label">Description</label>
-                        <input type="text" class="form-control" id="description" name="description" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="amount" class="form-label">Amount (KES)</label>
-                        <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0" required>
-                    </div>
-                </form>
-                </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="saveExpense">Save Expense</button>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Expense creation is admin-only; no modal for employees -->
 
 {% block scripts %}
 {{ super() }}
@@ -348,101 +303,7 @@ $(document).ready(function() {
         }
     });
 
-    // Handle save expense button click
-    $('#saveExpense').click(function() {
-        // Get form data
-        var formData = {
-            category: $('#category').val(),
-            description: $('#description').val(),
-            amount: parseFloat($('#amount').val())
-        };
-
-        // Validate form data
-        if (!formData.category || !formData.description || !formData.amount) {
-            alert('Please fill in all required fields');
-            return;
-        }
-
-        // Validate amount
-        if (isNaN(formData.amount) || formData.amount <= 0) {
-            alert('Please enter a valid amount greater than 0');
-            return;
-        }
-
-        // Show loading state
-        var $button = $(this);
-        $button.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...');
-
-        // Send AJAX request
-        $.ajax({
-            url: '/employee/expenses/add',
-            type: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify(formData),
-            success: function(response) {
-                if (response.success) {
-                    // Close modal and reset form
-                    $('#addExpenseModal').modal('hide');
-                    $('#addExpenseForm')[0].reset();
-                    
-                    // Show success message
-                    alert('Expense added successfully');
-                    
-                    // Reload the page to show updated data
-                    location.reload();
-                } else {
-                    alert('Error: ' + response.message);
-                }
-            },
-            error: function(xhr) {
-                var errorMessage = 'An error occurred while saving the expense';
-                if (xhr.responseJSON && xhr.responseJSON.message) {
-                    errorMessage = xhr.responseJSON.message;
-                }
-                console.error('Expense submission error:', xhr.responseText);
-                alert('Error: ' + errorMessage);
-            },
-            complete: function() {
-                // Reset button state
-                $button.prop('disabled', false).html('Save Expense');
-            }
-        });
-    });
-
-    // Handle delete expense button click
-    $(document).on('click', '.delete-expense', function() {
-        if (!confirm('Are you sure you want to delete this expense?')) {
-            return;
-        }
-
-        var expenseId = $(this).data('id');
-        var $button = $(this);
-
-        // Show loading state
-        $button.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>');
-
-        // Send delete request
-        $.ajax({
-            url: '/employee/expenses/' + expenseId + '/delete',
-            type: 'DELETE',
-            success: function(response) {
-                if (response.success) {
-                    // Remove row from table
-                    expensesTable.row($button.closest('tr')).remove().draw();
-                    alert('Expense deleted successfully');
-                } else {
-                    alert('Error: ' + response.message);
-                }
-            },
-            error: function() {
-                alert('Error deleting expense');
-            },
-            complete: function() {
-                // Reset button state
-                $button.prop('disabled', false).html('<i class="fas fa-trash"></i>');
-            }
-        });
-    });
+    // Expense creation/deletion is admin-only; disable related actions in employee view
 
     // Period filter buttons with loading state
     $('.btn-group .btn').click(function() {
