@@ -244,59 +244,59 @@ function updateShop(shopId) {
     window.location.href = currentUrl.toString();
 }
 
-// Add download button handler
+// Add download button handler (stream to blob and save)
 document.getElementById('downloadReportBtn').addEventListener('click', async function(e) {
     e.preventDefault();
-    
+    const button = this;
+    const originalText = button.innerHTML;
     try {
-        // Show loading state
-        const button = this;
-        const originalText = button.innerHTML;
         button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing Report...';
         button.disabled = true;
-        
-        // Get the download URL
         const downloadUrl = this.href;
-        
-        // Add a small delay to show the loading state
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Create a hidden iframe for the download
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
-        
-        // Set up error handling
-        iframe.onload = function() {
-            try {
-                // Check if the response is an error
-                const response = iframe.contentDocument.body.textContent;
-                if (response.includes('error') || response.includes('Error')) {
-                    throw new Error('Error generating report');
-                }
-            } catch (error) {
-                console.error('Download error:', error);
-                alert('Error generating the report. Please try again.');
-            } finally {
-                // Clean up
-                document.body.removeChild(iframe);
-                button.innerHTML = originalText;
-                button.disabled = false;
+
+        const res = await fetch(downloadUrl, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+            cache: 'no-store'
+        });
+        if (!res.ok) {
+            const msg = await res.text().catch(()=>'');
+            throw new Error(msg || 'Failed to generate report');
+        }
+        const blob = await res.blob();
+        // Derive filename from header or fallback
+        let filename = 'shop_accounts_report.xlsx';
+        const cd = res.headers.get('Content-Disposition') || res.headers.get('content-disposition');
+        if (cd) {
+            const match = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(cd);
+            if (match) {
+                filename = decodeURIComponent(match[1] || match[2] || filename);
             }
-        };
-        
-        // Trigger download
-        iframe.src = downloadUrl;
-        
-        // Reset button state after a delay
-        setTimeout(() => {
-            button.innerHTML = originalText;
-            button.disabled = false;
-        }, 5000);
-        
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        URL.revokeObjectURL(url);
+        a.remove();
     } catch (error) {
         console.error('Download error:', error);
-        alert('Error generating the report. Please try again.');
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+        alertDiv.style.position = 'fixed';
+        alertDiv.style.top = '20px';
+        alertDiv.style.right = '20px';
+        alertDiv.style.zIndex = '1060';
+        alertDiv.innerHTML = `
+            <i class="fas fa-exclamation-circle me-2"></i>${error && error.message ? error.message : 'Error generating the report. Please try again.'}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(alertDiv);
+        setTimeout(()=>{ try{ alertDiv.remove(); }catch(_){} }, 5000);
+    } finally {
         button.innerHTML = originalText;
         button.disabled = false;
     }
