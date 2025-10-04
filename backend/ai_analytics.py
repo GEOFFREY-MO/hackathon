@@ -233,8 +233,11 @@ def upload_chart():
                 chart_meta = json.loads(request.form.get('chart_meta'))
         except Exception:
             chart_meta = None
-        # If we have a file, run OCR pipeline; otherwise start with empty analysis and rely on hybrid/chart meta
-        analysis_result = ai_agent.analyze_uploaded_chart(filepath, int(shop_id)) if filepath else {'chart_data': {}, 'insights': []}
+        # If hybrid_json provided or OCR disabled, skip OCR even if file exists
+        ocr_enabled = os.getenv('OCR_ENABLED', '1') == '1'
+        use_ocr = bool(filepath) and ocr_enabled and not hybrid_json
+        # If we have a file and OCR allowed, run OCR pipeline; otherwise rely on hybrid/chart meta
+        analysis_result = ai_agent.analyze_uploaded_chart(filepath, int(shop_id)) if use_ocr else {'chart_data': {}, 'insights': []}
         if chart_meta and isinstance(analysis_result, dict):
             # Attach meta so assistant can leverage labels/series even if OCR is weak
             analysis_result['chart_meta'] = chart_meta
