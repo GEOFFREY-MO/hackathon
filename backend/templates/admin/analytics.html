@@ -1258,10 +1258,22 @@ function updateCharts(period) {
     const { signal } = analyticsAbortController;
 
     // Fetch data from the server
-    fetch(`/admin/analytics/data?period=${period}`, { signal })
-        .then(response => {
+    fetch(`/admin/analytics/data?period=${period}`, { signal, cache: 'no-store' })
+        .then(async response => {
             if (!response.ok) {
-                throw new Error('Failed to fetch analytics data');
+                // Try to extract more context but avoid noisy UI errors
+                try { const err = await response.json(); console.warn('Analytics error', response.status, err); }
+                catch(_) { console.warn('Analytics error', response.status); }
+                // Return empty structure to keep UI stable without flashing a banner
+                return {
+                    sales_trend: { labels: [], data: [] },
+                    shop_performance: { labels: [], data: [] },
+                    top_products: { labels: [], data: [] },
+                    category_distribution: { labels: [], data: [] },
+                    hourly_distribution: { labels: [], data: [] },
+                    stock_levels: { labels: [], current: [], reorder: [] },
+                    reorder_trend: { labels: [], data: [] }
+                };
             }
             return response.json();
         })
@@ -1311,10 +1323,9 @@ function updateCharts(period) {
             hideLoading();
         })
         .catch(error => {
-            // Ignore abort errors from rapid clicks
+            // Ignore abort errors from rapid clicks; keep UI calm on transient errors
             if (error && error.name === 'AbortError') return;
-            console.error('Error fetching analytics data:', error);
-            showError('Failed to load analytics data. Please try again.');
+            console.warn('Analytics fetch failed:', error);
         })
         .finally(() => {
             hideLoading();
