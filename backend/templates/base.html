@@ -501,20 +501,80 @@
                 const scan = createScanner(el);
                 try{
                     updateScannerText(scan,'Scanning…');
-                    // Auto-process immediately, limited to main content area if no element is provided
-                    const root = el || (document.querySelector('main.container') || document.body);
-                    const canvas = await html2canvas(root,{
-                        useCORS:true,
-                        backgroundColor:'#ffffff',
-                        ignoreElements: (elem)=>{
-                            return (elem.classList && elem.classList.contains('scanner-decor')) || elem.id==='assistantPanel' || elem.id==='assistantFab';
-                        },
-                        scrollY: -window.scrollY,
-                        scrollX: -window.scrollX
-                    });
+                    // Prefer direct capture for charts (canvas/svg) when selecting a specific element
+                    let blob = null;
+                    let chartMeta = null;
+                    if (el) {
+                        const targetCanvas = el.tagName === 'CANVAS' ? el : el.querySelector && el.querySelector('canvas');
+                        if (targetCanvas && targetCanvas.toDataURL) {
+                            updateScannerText(scan,'Analyzing…');
+                            // Try to extract Chart.js data if present (window[canvas.id])
+                            try {
+                                let chartObj = null;
+                                // Preferred: Chart.js v3+ API
+                                if (window.Chart && typeof window.Chart.getChart === 'function') {
+                                    chartObj = window.Chart.getChart(targetCanvas) || null;
+                                }
+                                // Fallback: global var named by canvas id
+                                if (!chartObj) {
+                                    const maybe = window[targetCanvas.id];
+                                    if (maybe && maybe.data && maybe.config) chartObj = maybe;
+                                }
+                                // Last resort: scan globals for Chart instances bound to this canvas
+                                if (!chartObj) {
+                                    for (const k in window) {
+                                        const v = window[k];
+                                        if (v && v.canvas && v.data && v.config && v.canvas === targetCanvas) { chartObj = v; break; }
+                                    }
+                                }
+                                if (chartObj && chartObj.data && chartObj.config) {
+                                    const labels = Array.isArray(chartObj.data.labels) ? chartObj.data.labels : [];
+                                    const datasets = Array.isArray(chartObj.data.datasets) ? chartObj.data.datasets.map(d=>({ label: d.label, data: Array.from(d.data||[]) })) : [];
+                                    const ctype = chartObj.config.type || 'unknown';
+                                    chartMeta = { labels, datasets, chart_type: ctype, source: 'chartjs' };
+                                }
+                            } catch (_) { /* ignore */ }
+                            const dataURL = targetCanvas.toDataURL('image/png');
+                            const res = await fetch(dataURL);
+                            blob = await res.blob();
+                        } else if ((el.tagName === 'SVG' || (el.querySelector && el.querySelector('svg')))) {
+                            const svg = el.tagName === 'SVG' ? el : el.querySelector('svg');
+                            if (svg) {
+                                updateScannerText(scan,'Analyzing…');
+                                const rect = svg.getBoundingClientRect();
+                                const xml = new XMLSerializer().serializeToString(svg);
+                                const img = new Image();
+                                img.crossOrigin = 'anonymous';
+                                img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+                                await new Promise((resolve)=>{ img.onload = resolve; img.onerror = resolve; });
+                                const cvs = document.createElement('canvas');
+                                cvs.width = Math.max(1, Math.floor(rect.width*2));
+                                cvs.height = Math.max(1, Math.floor(rect.height*2));
+                                const ctx = cvs.getContext('2d');
+                                ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,cvs.width,cvs.height);
+                                ctx.drawImage(img, 0, 0, cvs.width, cvs.height);
+                                blob = await new Promise(r=> cvs.toBlob(b=> r(b), 'image/png', 0.92));
+                            }
+                        }
+                    }
+                    // Fallback to html2canvas with higher scale
+                    if (!blob) {
+                        const root = el || (document.querySelector('main.container') || document.body);
+                        const canvas = await html2canvas(root,{
+                            useCORS:true,
+                            allowTaint:true,
+                            backgroundColor:'#ffffff',
+                            scale: 2,
+                            ignoreElements: (elem)=>{
+                                return (elem.classList && elem.classList.contains('scanner-decor')) || elem.id==='assistantPanel' || elem.id==='assistantFab';
+                            },
+                            scrollY: -window.scrollY,
+                            scrollX: -window.scrollX
+                        });
+                        blob = await new Promise(r=> canvas.toBlob(b=> r(b), 'image/png', 0.92));
+                    }
                     updateScannerText(scan,'Processing…');
-                    const blob = await new Promise(r=> canvas.toBlob(b=> r(b), 'image/png', 0.92));
-                    const f=new FormData(); f.append('file',blob,'capture.png'); if(currentShopId) f.append('shop_id', currentShopId);
+                    const f=new FormData(); f.append('file',blob,'capture.png'); if(currentShopId) f.append('shop_id', currentShopId); if(chartMeta){ f.append('chart_meta', JSON.stringify(chartMeta)); }
                     const resp=await fetch('/ai_analytics/api/ai/upload-chart',{method:'POST',body:f});
                     const data = await resp.json();
                     return data;
@@ -540,7 +600,19 @@
             shopSel.addEventListener('change', e=> currentShopId = e.target.value || null);
             sendBtn.addEventListener('click', sendMessage);
             input.addEventListener('keypress', e=>{ if(e.key==='Enter'){ sendMessage(); }});
-            btnCapture.addEventListener('click', async ()=>{ const data=await capture(); if(data && data.analysis){ addMsg('You','++Screen captured++. Interpreting…'); const formatted = (data.analysis && data.analysis.formatted) ? data.analysis.formatted : null; if(formatted) addMsg('AI Assistant', formatted); if(data.analysis.ai_interpretation) addMsg('AI Assistant', data.analysis.ai_interpretation); else if(!formatted) addMsg('AI Assistant','Capture processed.'); }});
+            btnCapture.addEventListener('click', async ()=>{ const data=await capture(); if(data && data.analysis){ addMsg('You','++Screen captured++. Interpreting…');
+                // Confidence badge (hidden DB vs OCR details, just a simple indicator)
+                try {
+                    const conf = data.analysis.db_comparison && data.analysis.db_comparison.confidence;
+                    if (typeof conf === 'number') {
+                        let tag = 'Low', icon = '⚠️';
+                        if (conf >= 0.75) { tag = 'High'; icon = '✅'; }
+                        else if (conf >= 0.5) { tag = 'Medium'; icon = '🟡'; }
+                        addMsg('AI Assistant', `Confidence: ${icon} ${tag}`);
+                    }
+                } catch(_) { /* ignore */ }
+                const formatted = (data.analysis && data.analysis.formatted) ? data.analysis.formatted : null; if(formatted) addMsg('AI Assistant', formatted);
+                if(data.analysis.ai_interpretation) addMsg('AI Assistant', data.analysis.ai_interpretation); else if(!formatted) addMsg('AI Assistant','Capture processed.'); }});
             btnSelect.addEventListener('click', enableSelect);
 
             // Theme toggle

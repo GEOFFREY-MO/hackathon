@@ -105,7 +105,69 @@ def upload_chart():
         
         # Analyze chart
         shop_id = request.form.get('shop_id', current_user.shop_id)
+        # If frontend provided chart metadata (Chart.js), pass via temp hint
+        chart_meta = None
+        try:
+            if 'chart_meta' in request.form:
+                chart_meta = json.loads(request.form.get('chart_meta'))
+        except Exception:
+            chart_meta = None
         analysis_result = ai_agent.analyze_uploaded_chart(filepath, int(shop_id))
+        if chart_meta and isinstance(analysis_result, dict):
+            # Attach meta so assistant can leverage labels/series even if OCR is weak
+            analysis_result['chart_meta'] = chart_meta
+            try:
+                cd = analysis_result.get('chart_data') or {}
+                pts = cd.get('data_points') or []
+                labels = chart_meta.get('labels') or []
+                datasets = chart_meta.get('datasets') or []
+                # Backfill datapoints if OCR missed them
+                if (not pts) and labels and datasets:
+                    # Sum values across datasets per label index
+                    sums = []
+                    for i, _ in enumerate(labels):
+                        total = 0.0
+                        for ds in datasets:
+                            try:
+                                total += float(ds.get('data', [0])[i] or 0)
+                            except Exception:
+                                pass
+                        sums.append(total)
+                    new_pts = [{ 'label': str(labels[i]), 'value': float(sums[i]), 'type': 'numerical' } for i in range(len(labels))]
+                    cd['data_points'] = new_pts
+                    # Map chart type
+                    ctype = (chart_meta.get('chart_type') or '').lower()
+                    mapped = 'unknown'
+                    if 'bar' in ctype: mapped = 'bar_chart'
+                    elif 'line' in ctype: mapped = 'line_chart'
+                    elif 'pie' in ctype or 'doughnut' in ctype: mapped = 'pie_chart'
+                    cd['chart_type'] = cd.get('chart_type') or mapped
+                    # Simple trend
+                    if mapped == 'line_chart' and len(sums) > 1:
+                        if sums[-1] > sums[0] * 1.1:
+                            cd['trends'] = list(set((cd.get('trends') or []) + ['increasing']))
+                        elif sums[-1] < sums[0] * 0.9:
+                            cd['trends'] = list(set((cd.get('trends') or []) + ['decreasing']))
+                        else:
+                            cd['trends'] = list(set((cd.get('trends') or []) + ['stable']))
+                    analysis_result['chart_data'] = cd
+                # Rebuild formatted text to include new data points
+                lines = []
+                if cd.get('title'):
+                    lines.append(f"**Title**: {cd.get('title')}")
+                if cd.get('chart_type'):
+                    lines.append(f"**Type**: {cd.get('chart_type')}")
+                if cd.get('data_points'):
+                    lines.append('**Data Points**:')
+                    for p in cd['data_points'][:20]:
+                        lines.append(f"- {p.get('label','?')}: {p.get('value','?')}")
+                if analysis_result.get('insights'):
+                    lines.append('**OCR Insights**:')
+                    for s in analysis_result['insights']:
+                        lines.append(f"- {s}")
+                analysis_result['formatted'] = "\n".join(lines)
+            except Exception:
+                pass
 
         # If OCR succeeded, stream a formatted message payload
         try:
