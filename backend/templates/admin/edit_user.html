@@ -122,45 +122,70 @@ document.addEventListener('DOMContentLoaded', function() {
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
         submitBtn.disabled = true;
         
-        // Submit form data
+        // Submit form data with timeout and abort handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
         fetch(window.location.href, {
             method: 'POST',
             body: new FormData(form),
             headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            signal: controller.signal
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Show success message
-                const alert = document.createElement('div');
-                alert.className = 'alert alert-success alert-dismissible fade show';
-                alert.innerHTML = `
-                    ${data.message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                `;
-                document.querySelector('main').insertBefore(alert, document.querySelector('.card'));
-                
-                // Redirect after success
-                setTimeout(() => {
-                    window.location.href = '{{ url_for("admin.manage_users") }}';
-                }, 1500);
-            } else {
-                throw new Error(data.message || 'Failed to update user');
+        .then(async response => {
+            clearTimeout(timeoutId);
+            if (!response.ok) {
+                // Try to parse JSON error, else fallback to text
+                try {
+                    const data = await response.json();
+                    throw new Error(data.message || 'Failed to update user');
+                } catch (_) {
+                    const text = await response.text();
+                    throw new Error(text || 'Failed to update user');
+                }
             }
-        })
-        .catch(error => {
-            // Show error message
+            // Parse JSON safely
+            let data;
+            try { data = await response.json(); } catch (_) { data = {}; }
+            if (!data || !data.success) {
+                throw new Error((data && data.message) || 'Failed to update user');
+            }
+
+            // Show success and redirect quickly
             const alert = document.createElement('div');
-            alert.className = 'alert alert-danger alert-dismissible fade show';
+            alert.className = 'alert alert-success alert-dismissible fade show';
             alert.innerHTML = `
-                ${error.message}
+                ${data.message || 'User updated successfully'}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             `;
             document.querySelector('main').insertBefore(alert, document.querySelector('.card'));
-            
-            // Reset button state
+            setTimeout(() => { window.location.href = '{{ url_for("admin.manage_users") }}'; }, 400);
+        })
+        .catch(error => {
+            if (error && error.name === 'AbortError') {
+                // Timeout
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-danger alert-dismissible fade show';
+                alert.innerHTML = `
+                    Request timed out. Please try again.
+                    <button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button>
+                `;
+                document.querySelector('main').insertBefore(alert, document.querySelector('.card'));
+            } else {
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-danger alert-dismissible fade show';
+                alert.innerHTML = `
+                    ${error && error.message ? error.message : 'An error occurred'}
+                    <button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button>
+                `;
+                document.querySelector('main').insertBefore(alert, document.querySelector('.card'));
+            }
+        })
+        .finally(() => {
+            // Always reset button state if we are still on the page
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
         });
