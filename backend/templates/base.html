@@ -505,9 +505,14 @@
             function updateScannerText(scan, msg){ if(scan && scan.text){ scan.text.textContent = msg; } }
             function removeScanner(scan){ if(!scan) return; [scan.overlay, scan.box, scan.text].forEach(n=>{ if(n && n.parentNode) n.parentNode.removeChild(n); }); if(scan.segments){ scan.segments.forEach(n=>{ if(n && n.parentNode) n.parentNode.removeChild(n); }); } }
 
-            async function capture(el){
+            async function capture(el, delayMs){
                 const scan = createScanner(el);
                 try{
+                    // Optional scanning dwell time for visual effect (e.g., Select)
+                    if (delayMs && Number(delayMs) > 0) {
+                        updateScannerText(scan,'Scanning…');
+                        await new Promise(r=> setTimeout(r, Number(delayMs)));
+                    }
                     // 1) DOM/Table/Card extraction first
                     updateScannerText(scan,'Analyzing DOM…');
                     const hybrid = { chart_type: null, title: '', labels: [], values: [], time_period: '', trends: {}, confidence: null };
@@ -652,7 +657,26 @@
                 function out(e){ e.target.classList.remove(hc); }
                 async function click(e){ e.preventDefault(); e.stopPropagation();
                     document.removeEventListener('mouseover',over,true); document.removeEventListener('mouseout',out,true); document.removeEventListener('click',click,true);
-                    try{ const data = await capture(e.target); if(data && data.analysis){ addMsg('You','++Selection captured++. Interpreting…'); if(data.analysis.ai_interpretation) addMsg('AI Assistant', data.analysis.ai_interpretation); else addMsg('AI Assistant','Processed selection.'); }
+                    try{
+                        // Hold overlay for 5 seconds to simulate scanning
+                        const data = await capture(e.target, 5000);
+                        if(data && data.analysis){
+                            addMsg('You','++Selection captured++. Interpreting…');
+                            // Show confidence if available
+                            try {
+                                const conf = data.analysis.db_comparison && data.analysis.db_comparison.confidence;
+                                if (typeof conf === 'number') {
+                                    let tag = 'Low', icon = '⚠️';
+                                    if (conf >= 0.75) { tag = 'High'; icon = '✅'; }
+                                    else if (conf >= 0.5) { tag = 'Medium'; icon = '🟡'; }
+                                    addMsg('AI Assistant', `Confidence: ${icon} ${tag}`);
+                                }
+                            } catch(_) { /* ignore */ }
+                            const formatted = (data.analysis && data.analysis.formatted) ? data.analysis.formatted : null;
+                            if(formatted) { addMsg('AI Assistant', formatted); }
+                            if(data.analysis.ai_interpretation) { addMsg('AI Assistant', data.analysis.ai_interpretation); }
+                            if(!formatted && !data.analysis.ai_interpretation) { addMsg('AI Assistant','Could not analyze this dashboard. Please try again.'); }
+                        }
                     }catch(err){ addMsg('AI Assistant','Capture failed.'); }
                     document.querySelectorAll('.'+hc).forEach(el=>el.classList.remove(hc)); if(st.parentNode) st.parentNode.removeChild(st);
                 }
