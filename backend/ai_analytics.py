@@ -150,11 +150,8 @@ def chat_with_ai():
         _file_mem.add(int(shop_id), int(current_user.id), 'user', message, meta={"endpoint":"chat"})
         _mem0.add(message, user_id=int(current_user.id), metadata={"shop_id": int(shop_id), "endpoint": "chat"})
 
-        # Get AI response with recent context appended
-        augmented = message
-        if recent_text:
-            augmented = f"Context (recent):\n{recent_text}\n---\n{message}"
-        response = ai_agent.chat_with_agent(augmented, shop_id)
+        # Get AI response using raw message plus separate context (avoid triggering structured answers from context words)
+        response = ai_agent.chat_with_agent(message, shop_id, context={"recent": recent_text} if recent_text else None)
 
         # Store assistant reply
         if isinstance(response, str) and response:

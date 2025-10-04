@@ -338,12 +338,16 @@ class RetailAIAgent:
             performance_data = self.analyze_shop_performance(shop_id)
             insights = self.generate_insights(performance_data)
             
-            # Prepare context for AI
+            # Prepare context for AI (include recent memory if provided)
             context_data = {
                 "shop_performance": performance_data,
                 "insights": insights,
                 "timestamp": datetime.utcnow().isoformat()
             }
+            if context and isinstance(context, dict):
+                recent_text = context.get("recent")
+                if recent_text:
+                    context_data["recent_conversation"] = recent_text
             
             # Create system prompt
             system_prompt = f"""
@@ -398,22 +402,41 @@ class RetailAIAgent:
                     logger.error(f"Generative backend error: {gen_err}")
 
             if not ai_response:
-                # Local fallback response summarizing current DB insights
-                lines = [
-                    "Local insights (no cloud AI):",
-                    f"- Total Revenue: ${performance_data.get('total_revenue', 0):,.2f}",
-                    f"- Net Profit: ${performance_data.get('net_profit', 0):,.2f}",
-                    f"- Profit Margin: {performance_data.get('profit_margin', 0):.1f}%",
-                    f"- Sales Trend: {performance_data.get('sales_trend', 'unknown')}",
+                # Local fallback. If the user didn't ask an analytics question, avoid repeating summaries.
+                msg_lower = (message or "").lower()
+                analytic_triggers = [
+                    "revenue","sales","turnover","profit","expense","expenses","summary",
+                    "products sold","units sold","services sold","top","trend","peak","low stock","inventory"
                 ]
-                if performance_data.get('top_products'):
-                    tp = performance_data['top_products'][0]
-                    lines.append(f"- Top Product: {tp[0]} (${tp[1]['revenue']:,.2f})")
-                if insights:
-                    lines.append("- Insights:")
-                    for s in insights[:5]:
-                        lines.append(f"  • {s}")
-                ai_response = "\n".join(lines)
+                asked_analytics = any(k in msg_lower for k in analytic_triggers)
+                if not asked_analytics:
+                    # Conversational fallback using recent context if available
+                    recent_text = (context or {}).get("recent") if isinstance(context, dict) else None
+                    recall_line = ""
+                    if recent_text:
+                        # Take the last non-empty line as a brief recall
+                        try:
+                            parts = [p.strip() for p in recent_text.split("\n") if p.strip()]
+                            if parts:
+                                recall_line = f"I recall: {parts[-1][:180]}"  # keep short
+                        except Exception:
+                            pass
+                    guide = "You can ask things like 'What are today's sales?', 'Top products this week', or 'Any items low in stock?'."
+                    ai_response = (recall_line+"\n" if recall_line else "") + guide
+                else:
+                    # Provide succinct local analytics summary
+                    lines = [
+                        f"Financial ({performance_data.get('time_period','this period')}): Revenue=KES {performance_data.get('total_revenue', 0):,.2f}, Expenses=KES {performance_data.get('total_expenses', 0):,.2f}, Profit=KES {performance_data.get('net_profit', 0):,.2f}"
+                    ]
+                    # Units/services counts (best-effort)
+                    if performance_data.get('total_sales_count') is not None:
+                        lines.append(f"Transactions: {int(performance_data['total_sales_count'])}")
+                    if performance_data.get('sales_trend'):
+                        lines.append(f"Trend: {performance_data['sales_trend']}")
+                    if performance_data.get('top_products'):
+                        tp = performance_data['top_products'][0]
+                        lines.append(f"Top product: {tp[0]}")
+                    ai_response = "\n".join(lines)
             
             # Add to conversation history
             self.conversation_history.append({
