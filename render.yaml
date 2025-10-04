@@ -2,7 +2,7 @@ services:
   - type: web
     name: smartretailai
     env: python
-    buildCommand: pip install -r requirements.txt && cd backend && flask db upgrade || true && cd ..
+    buildCommand: python -m pip install --upgrade pip && pip install -r requirements.txt && cd backend && flask db upgrade || true && cd ..
     startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 4 --timeout 120
     envVars:
       - key: FLASK_APP
