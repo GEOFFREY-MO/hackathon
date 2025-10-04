@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 import json
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
 import os
 from database import db, Shop, Sale, Product, Service, ServiceSale, Expense, FinancialRecord
