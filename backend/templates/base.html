@@ -457,6 +457,14 @@
                 let box;
                 if(targetEl){
                     const r = targetEl.getBoundingClientRect();
+                    // Dim everything outside the selected element
+                    const vw = window.innerWidth, vh = window.innerHeight;
+                    const makeSeg = (left,top,width,height)=>{ const seg=document.createElement('div'); seg.className='scanner-overlay-segment scanner-decor'; seg.style.left=left+'px'; seg.style.top=top+'px'; seg.style.width=width+'px'; seg.style.height=height+'px'; document.body.appendChild(seg); segments.push(seg); };
+                    makeSeg(0,0,vw,r.top); // top
+                    makeSeg(0,r.top,r.left,r.height); // left
+                    makeSeg(r.right,r.top,vw-r.right,r.height); // right
+                    makeSeg(0,r.bottom,vw,vh-r.bottom); // bottom
+
                     box = document.createElement('div');
                     box.className = 'scanner-box scanner-decor';
                     box.style.left = r.left+ 'px';
