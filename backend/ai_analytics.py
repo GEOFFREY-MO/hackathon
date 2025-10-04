@@ -10,6 +10,7 @@ import os
 import json
 import logging
 from datetime import datetime
+import random
 from ai_agent import ai_agent
 from ocr_service import ocr_analyzer
 from database import db, Shop, User
@@ -227,8 +228,15 @@ def upload_chart():
                             lines.append("- **Brief**: Values are relatively stable across the selected range.")
                     except Exception:
                         pass
-                # Follow-up question
-                lines.append("Would you like suggested next steps (e.g., restock alerts, promo ideas), or do you have a different question?")
+                # Follow-up question (randomized)
+                prompts = [
+                    "Would you like suggested next steps (e.g., restock alerts, promo ideas), or do you have a different question?",
+                    "Want me to recommend next actions, or do you have another question?",
+                    "Shall I propose next steps, or would you like to ask something else?",
+                    "I can suggest actionable next steps—proceed, or ask me anything else?",
+                    "Would you like quick recommendations, or do you prefer to explore another area?",
+                ]
+                lines.append(random.choice(prompts))
                 analysis_result['formatted'] = "\n".join(lines)
         except Exception:
             pass
@@ -263,7 +271,15 @@ def upload_chart():
                 if analysis_result.get('insights'):
                     for s in analysis_result['insights']:
                         lines.append(f"- {s}")
-                lines.append("Would you like suggested next steps (e.g., restock alerts, promo ideas), or do you have a different question?")
+                # Follow-up question (randomized)
+                prompts2 = [
+                    "Would you like suggested next steps (e.g., restock alerts, promo ideas), or do you have a different question?",
+                    "Want me to recommend next actions, or do you have another question?",
+                    "Shall I propose next steps, or would you like to ask something else?",
+                    "I can suggest actionable next steps—proceed, or ask me anything else?",
+                    "Would you like quick recommendations, or do you prefer to explore another area?",
+                ]
+                lines.append(random.choice(prompts2))
                 # Do not show DB vs OCR comparison explicitly in chat; keep internal
                 analysis_result['formatted'] = "\n".join(lines)
         except Exception:
