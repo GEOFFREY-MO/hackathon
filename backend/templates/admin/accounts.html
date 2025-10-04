@@ -387,5 +387,20 @@ document.getElementById('downloadReportBtn').addEventListener('click', async fun
     line-height: 1.1;
 }
 .net-total-icon { color: #0b1324aa; }
+
+/* Dark mode overrides: use dark card with light text */
+[data-theme="dark"] .net-total-card {
+    background-color: #0b0f1a !important;
+    border: 1px solid rgba(255,255,255,0.08);
+}
+[data-theme="dark"] .net-total-title {
+    color: #ffffff !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+[data-theme="dark"] .net-total-amount {
+    color: #ffffff !important;
+    text-shadow: 0 2px 3px rgba(0,0,0,0.85);
+}
+[data-theme="dark"] .net-total-icon { color: #ffffffcc; }
 </style>
 {% endblock %} 
